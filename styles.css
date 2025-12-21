@@ -7,9 +7,14 @@
   --text:#111;
   --muted:#666;
   --dark:#1f1f1f;
+  /* Zaunteam Brand (aus Logo) */
+  --brandGreen:#799114;
+  --brandGreenLight:#A2C227;
+  --brandRed:#DF0715;
+  --brandRedDark:#A02230;
   --line:#c9c9c9;
-  --pos:#2e7d32;
-  --neg:#c62828;
+  --pos:var(--brandGreen);
+  --neg:var(--brandRed);
   --shadow: 0 2px 10px rgba(0,0,0,.12);
   --radius: 10px;
   --tap: 44px;
@@ -49,6 +54,7 @@ button,input,select,textarea{ font-family:inherit; }
   padding-left:14px;
   padding-right:8px;
   box-shadow:0 1px 0 rgba(255,255,255,.08);
+  border-bottom: 3px solid var(--brandGreen);
 }
 .topbar__title{
   font-weight:600;
@@ -223,10 +229,11 @@ button,input,select,textarea{ font-family:inherit; }
 }
 .btn:active{ transform: translateY(1px); }
 .btn--primary{
-  background:#2b2b2b;
-  border-color:#2b2b2b;
+  background:var(--brandGreen);
+  border-color:var(--brandGreen);
   color:#fff;
 }
+.btn--primary:active{ background: var(--brandGreenLight); border-color: var(--brandGreenLight); }
 .btn--ghost{
   background:transparent;
 }
@@ -345,7 +352,7 @@ hr.sep{
   left:50%;
   bottom:18px;
   transform:translateX(-50%);
-  background:#2b2b2b;
+  background:var(--dark);
   color:#fff;
   padding:10px 14px;
   border-radius:999px;
@@ -366,3 +373,34 @@ hr.sep{
   .monthHeader{ grid-template-columns: 1fr 2fr; }
   .dayRow__hours{ font-size:24px; }
 }
+
+
+/* Update banner */
+.updateBanner{
+  position: sticky;
+  top: 56px;
+  z-index: 30;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:10px 12px;
+  background:#f3f7e0;
+  border-bottom:1px solid rgba(121,145,20,.35);
+}
+.updateBanner.hidden{ display:none; }
+.updateBanner__text{ color:#333; font-weight:600; }
+.btnSmall{ padding:8px 10px; font-size:14px; }
+
+.mh__person{
+  margin-top:6px;
+  font-size:13px;
+  color:#555;
+}
+
+.checkRow{ display:flex; align-items:center; gap:10px; user-select:none; }
+.holidayPreview{ border:1px solid #ddd; border-radius:12px; padding:8px; max-height:200px; overflow:auto; background:#fff; }
+.holidayLine{ display:flex; gap:10px; padding:4px 0; border-bottom:1px dashed #eee; }
+.holidayLine:last-child{ border-bottom:none; }
+.holidayDate{ width:92px; color:#444; font-variant-numeric: tabular-nums; }
+.holidayName{ color:#222; }

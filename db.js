@@ -130,10 +130,48 @@
     }
   }
 
+
+  async function deleteDaysBefore(cutoffDateStr){
+    // Deletes all day records with date < cutoffDateStr
+    try{
+      const db = await openDB();
+      await new Promise((resolve, reject)=>{
+        const tx = db.transaction('days','readwrite');
+        const store = tx.objectStore('days');
+        const req = store.openCursor();
+        req.onsuccess = ()=>{
+          const cur = req.result;
+          if(cur){
+            const k = cur.key;
+            if(k < cutoffDateStr){
+              cur.delete();
+            }
+            cur.continue();
+          }else{
+            resolve();
+          }
+        };
+        req.onerror = ()=> reject(req.error);
+      });
+    }catch(e){
+      // localStorage fallback
+      const keys = [];
+      for(let i=0;i<localStorage.length;i++){
+        const key = localStorage.key(i);
+        if(key && key.startsWith('az_day_')){
+          const date = key.substring('az_day_'.length);
+          if(date < cutoffDateStr) keys.push(key);
+        }
+      }
+      keys.forEach(k=>localStorage.removeItem(k));
+    }
+  }
+
   // Expose
   window.AZ_DB = {
     getSettings, setSettings,
     getDay, setDay, deleteDay,
     getDaysInRange,
+    deleteDaysBefore,
   };
 })();

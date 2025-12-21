@@ -47,13 +47,20 @@
   }
 
   function parseCSV(text){
-    // simple ; separated CSV with optional quotes
-    const lines = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').filter(l=>l.trim().length);
-    if(!lines.length) return {header:[], rows:[]};
-    const header = splitLine(lines[0]);
+    // tolerant CSV parser: supports ';' (default), ',' and tab, with optional quotes
+    const norm = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+    const rawLines = norm.split('\n').filter(l=>l.trim().length);
+    if(!rawLines.length) return {header:[], rows:[]};
+
+    const delim = detectDelimiter(rawLines[0]);
+    // Strip UTF-8 BOM if present and normalize header keys
+    const header = splitLine(rawLines[0], delim)
+      .map(h => String(h || '').replace(/^\uFEFF/, '').trim());
     const rows = [];
-    for(let i=1;i<lines.length;i++){
-      const parts = splitLine(lines[i]);
+
+    for(let i=1;i<rawLines.length;i++){
+      const parts = splitLine(rawLines[i], delim);
+      if(parts.every(p=>!String(p||'').trim().length)) continue;
       const row = {};
       for(let j=0;j<header.length;j++){
         row[header[j]] = parts[j] ?? '';
@@ -62,7 +69,18 @@
     }
     return {header, rows};
 
-    function splitLine(line){
+    function detectDelimiter(line){
+      const counts = [
+        {d:';', c:(line.match(/;/g)||[]).length},
+        {d:',', c:(line.match(/,/g)||[]).length},
+        {d:'\t', c:(line.match(/\t/g)||[]).length},
+      ];
+      counts.sort((a,b)=>b.c-a.c);
+      // if none found, fallback ';'
+      return counts[0].c ? counts[0].d : ';';
+    }
+
+    function splitLine(line, delim){
       const out = [];
       let cur = '';
       let inQ = false;
@@ -70,13 +88,19 @@
         const ch = line[i];
         if(inQ){
           if(ch === '"'){
-            if(line[i+1] === '"'){ cur+='"'; i++; }
-            else inQ = false;
-          }else cur += ch;
+            if(line[i+1] === '"'){ cur += '"'; i++; }
+            else { inQ = false; }
+          }else{
+            cur += ch;
+          }
         }else{
-          if(ch === '"') inQ = true;
-          else if(ch === ';'){ out.push(cur); cur=''; }
-          else cur += ch;
+          if(ch === '"'){ inQ = true; }
+          else if(ch === delim){
+            out.push(cur);
+            cur = '';
+          }else{
+            cur += ch;
+          }
         }
       }
       out.push(cur);

@@ -7,6 +7,9 @@
 
   const $ = (sel)=> document.querySelector(sel);
   const elCompanyName = $('#companyName');
+  const elPersonName = $('#personName');
+  const elUpdateBanner = $('#updateBanner');
+  const btnUpdateNow = $('#btnUpdateNow');
   const elVacationBadge = $('#vacationBadge');
   const elMonthTitle = $('#monthTitle');
   const elMonthStats = $('#monthStats');
@@ -27,14 +30,18 @@
   // ----- Defaults -----
   const DEFAULT_SETTINGS = {
     companyName: 'Zaunteam',
-    startDate: '2024-01-01',
-    startSaldoHours: 0.0,
+    personName: '',
+    minYear: 2025,
+    startDate: '2025-01-01',     // optional: Beginn der Aufzeichnung (min. 2025)
+    yearStartSaldo: {},         // { [year]: hours }  (Jahres-Startsaldo)
     annualVacationDays: 30,
     roundingMinutes: 0,          // 0,5,10,15
     defaultPauseMinutes: 30,     // 0, 15, 30, 45, 60...
-    includeAssumption: false,
-    includeAugsburgPeace: false,
+    federalState: 'BY',          // Bundesland für Feiertage
+    includeAssumption: true,// default: Mariä Himmelfahrt an (BY)    // optional / regional
+    includeAugsburgPeace: false, // optional / lokal
     enableShift2: false,
+    _cleanupBefore2025Done: false,
   };
 
   const DAY_TYPES = [
@@ -55,6 +62,52 @@
     await AZ_DB.setSettings(settings);
   }else{
     settings = {...deepClone(DEFAULT_SETTINGS), ...settings};
+  }
+
+  // ---- Migration / Guarantees ----
+  settings.minYear = 2025;
+
+  // Ensure startDate is never before 2025 (we also delete older data once)
+  if(!settings.startDate || String(settings.startDate) < '2025-01-01'){
+    settings.startDate = '2025-01-01';
+  }
+
+  // Legacy Startsaldo (global) -> map to current year if not already set
+  if(!settings.yearStartSaldo || typeof settings.yearStartSaldo !== 'object'){
+    settings.yearStartSaldo = {};
+  }
+  const nowYear = (new Date()).getFullYear();
+  if(settings.startSaldoHours !== undefined && settings.yearStartSaldo[String(nowYear)] === undefined){
+    const legacy = Number(settings.startSaldoHours || 0);
+    settings.yearStartSaldo[String(nowYear)] = legacy;
+  }
+  delete settings.startSaldoHours;
+
+  if(!settings.federalState) settings.federalState = 'BY';
+
+  // One-time cleanup: remove all records & settings < 2025
+  if(!settings._cleanupBefore2025Done){
+    try{
+      await AZ_DB.deleteDaysBefore('2025-01-01');
+    }catch(e){
+      console.warn('cleanup failed', e);
+    }
+    // remove saldo entries for years before 2025
+    Object.keys(settings.yearStartSaldo||{}).forEach(k=>{
+      if(Number(k) < 2025) delete settings.yearStartSaldo[k];
+    });
+    settings._cleanupBefore2025Done = true;
+    await AZ_DB.setSettings(settings);
+  }
+
+  // Migration: BY default -> Mariä Himmelfahrt (opt-in) jetzt standardmäßig an
+  // (wird nur einmal gesetzt, danach entscheidet der User)
+  if(!settings._migrAssumptionDefaultOn){
+    if(String(settings.federalState||'BY').toUpperCase()==='BY'){
+      settings.includeAssumption = true;
+    }
+    settings._migrAssumptionDefaultOn = true;
+    await AZ_DB.setSettings(settings);
   }
 
   // View state
@@ -116,9 +169,11 @@
   }
 
   function getHolidayMapForYear(year){
-    return AZ_HOLIDAYS.getBavariaHolidays(year, {
+    const st = (settings.federalState || 'BY');
+    return AZ_HOLIDAYS.getHolidaysForState(year, st, {
       includeAssumption: !!settings.includeAssumption,
       includeAugsburgPeace: !!settings.includeAugsburgPeace,
+      forceDisableAssumption: (String(st).toUpperCase()==='SL' && !settings.includeAssumption),
     });
   }
 
@@ -211,12 +266,14 @@
 
   // ----- Carry / balances -----
   function parseStartDate(){
-    const s = settings.startDate || '2024-01-01';
+    const s = settings.startDate || '2025-01-01';
     return dateStrToDate(s);
   }
 
-  function startSaldoMinutes(){
-    const h = Number(settings.startSaldoHours || 0);
+  function yearStartSaldoMinutes(year){
+    const ys = (settings.yearStartSaldo || {});
+    const key = String(year);
+    const h = Number((ys[key] !== undefined ? ys[key] : 0) || 0);
     return Math.round(h*60);
   }
 
@@ -247,46 +304,12 @@
   }
 
   function computeCarryForMonth(year, monthIndex0){
-    // Carry is saldo at end of previous month. Uses settings.startDate + startSaldo.
-    const startD = parseStartDate();
-    const startMonth = new Date(startD.getFullYear(), startD.getMonth(), 1);
-    const target = new Date(year, monthIndex0, 1);
-
-    // If target is before startMonth, carry is startSaldo.
-    if(target < startMonth) return startSaldoMinutes();
-
-    let carry = startSaldoMinutes();
-    let cur = new Date(startMonth);
-
-    // walk months until month before target
-    while(cur < target){
-      const y = cur.getFullYear();
-      const m0 = cur.getMonth();
-      const diff = computeMonthDiff(y, m0);
-      carry += diff;
-      // next month
-      cur = new Date(y, m0+1, 1);
-    }
-    // carry now equals saldo at end of previous month relative to target
-    return carry;
-
-    function computeMonthDiff(y,m0){
-      // compute diff for month y-m0 by loading records on-demand (range scan) - small data so ok
-      // NOTE: We use monthRecords if it matches the requested month, else we approximate by querying DB synchronously is not possible.
-      // We'll do a tiny on-the-fly sum based on cached monthRecords only when it's current month; for other months, we will query via cachedYearData when needed (year view).
-      // Here: used mainly for current month carry calculation, so we only need past months; we compute via localStorage/IDB by requesting range in a blocking style isn't possible.
-      // To keep UI stable, we precompute carries for year view separately. For current month carry, we do a lightweight cached approach:
-      return computeMonthDiffCached(y,m0);
-    }
-
-    function computeMonthDiffCached(y,m0){
-      // This function relies on a cache built in computeCarryForMonthFast() via year prefetch, but we don't have it here.
-      // We'll use a conservative approach: carry is computed based only on stored explicit day records.
-      // That would be wrong because missing records for workdays imply Ist=0, which should count negative diff, but user expects full Soll month diff.
-      // Therefore, we MUST compute month diff fully. We'll do it by reading DB range ASYNC in precomputation and storing in a map.
-      // Here we fallback to 0, but we override carry computation with async precompute in renderMonth().
-      return 0;
-    }
+    // Carry is saldo at end of previous month within the SAME year.
+    // Yearly balances reset each year (start at 0 or a configured Jahres-Startsaldo).
+    const key = monthKey(year, monthIndex0);
+    const carry = yearCarryCache.get(key);
+    if(typeof carry === 'number') return carry;
+    return yearStartSaldoMinutes(year);
   }
 
   // To compute carry correctly (including missing days), we precompute for the visible year once:
@@ -306,10 +329,8 @@
     const map = new Map(all.map(r=>[r.date, r]));
     const hol = getHolidayMapForYear(year);
 
-    let carry = (year === parseStartDate().getFullYear() ? startSaldoMinutes() : startSaldoMinutes()); // startSaldo applies globally
-    // But startSaldo is a global baseline; we will compute carry for months within this year relative to startDate by also including months before this year when needed.
-    // We'll handle that by computing carry for the first month of year via computeCarryFromStartTo(year,0) async.
-    carry = await computeCarryFromStartTo(year, 0, map, hol);
+    // Yearly reset: carry starts at Jahres-Startsaldo for this year (default 0)
+    let carry = yearStartSaldoMinutes(year);
 
     for(let m0=0;m0<12;m0++){
       const key = monthKey(year,m0);
@@ -319,8 +340,7 @@
       carry += diff;
     }
   }
-
-  function computeMonthDiffUsingMap(year,m0, map, hol){
+function computeMonthDiffUsingMap(year,m0, map, hol){
     const last = new Date(year, m0+1, 0);
     let soll=0, ist=0;
     for(let d=1; d<=last.getDate(); d++){
@@ -336,45 +356,7 @@
     return ist - soll;
   }
 
-  async function computeCarryFromStartTo(year, monthIndex0, yearMap, yearHol){
-    // carry before target month, computed from settings.startDate month up to previous month.
-    const startD = parseStartDate();
-    const startM = new Date(startD.getFullYear(), startD.getMonth(), 1);
-    const target = new Date(year, monthIndex0, 1);
-    let carry = startSaldoMinutes();
-
-    if(target <= startM) return carry;
-
-    // iterate months from startM to month before target
-    let cur = new Date(startM);
-    while(cur < target){
-      const y = cur.getFullYear();
-      const m0 = cur.getMonth();
-      // compute diff for this month y-m0 by reading that month records
-      const diff = await computeMonthDiffAsync(y,m0);
-      carry += diff;
-      cur = new Date(y, m0+1, 1);
-    }
-    return carry;
-
-    async function computeMonthDiffAsync(y,m0){
-      const first = new Date(y,m0,1);
-      const last = new Date(y,m0+1,0);
-      const from = toDateStr(first);
-      const to = toDateStr(last);
-      const recs = await AZ_DB.getDaysInRange(from,to);
-      const map = new Map(recs.map(r=>[r.date,r]));
-      const hol = getHolidayMapForYear(y);
-      return computeMonthDiffUsingMap(y,m0,map,hol);
-    }
-  }
-
-  function computeCarryForMonthFast(year, monthIndex0){
-    const key = monthKey(year, monthIndex0);
-    return yearCarryCache.get(key) ?? startSaldoMinutes();
-  }
-
-  // ----- Rendering -----
+    // ----- Rendering -----
   async function renderMonth(monthStart){
     const y = monthStart.getFullYear();
     const m0 = monthStart.getMonth();
@@ -383,6 +365,7 @@
     await buildYearCaches(y);
 
     elCompanyName.textContent = settings.companyName || 'Zaunteam';
+    elPersonName.textContent = (settings.personName || '').trim();
 
     const vacation = computeVacationRemaining(y);
     elVacationBadge.textContent = `Urlaub: ${vacation.remaining}`;
@@ -843,12 +826,34 @@
   $('#saveSettings').addEventListener('click', async ()=>{
     const form = settingsBody.querySelector('form');
     const fd = new FormData(form);
+
+    const curYear = viewDate.getFullYear();
+
     settings.companyName = (fd.get('companyName') || 'Zaunteam').toString();
-    settings.startDate = (fd.get('startDate') || '2024-01-01').toString();
-    settings.startSaldoHours = parseFloat((fd.get('startSaldoHours')||'0').toString().replace(',','.')) || 0;
+    settings.personName = (fd.get('personName') || '').toString();
+
+    // Enforce minYear = 2025
+    settings.minYear = 2025;
+
+    // optional start date (min. 2025-01-01)
+    const sd = (fd.get('startDate') || '2025-01-01').toString();
+    settings.startDate = (sd < '2025-01-01') ? '2025-01-01' : sd;
+
+    // Yearly start saldo (resets each year)
+    const ys = settings.yearStartSaldo || {};
+    const yKey = String(curYear);
+    const ySaldoH = parseFloat((fd.get('yearStartSaldoHours')||'0').toString().replace(',','.')) || 0;
+    ys[yKey] = ySaldoH;
+    settings.yearStartSaldo = ys;
+
+    // Legacy field cleanup
+    delete settings.startSaldoHours;
+
     settings.annualVacationDays = parseInt(fd.get('annualVacationDays')||'30',10) || 30;
     settings.roundingMinutes = parseInt(fd.get('roundingMinutes')||'0',10) || 0;
     settings.defaultPauseMinutes = parseInt(fd.get('defaultPauseMinutes')||'30',10) || 30;
+
+    settings.federalState = (fd.get('federalState') || 'BY').toString();
     settings.includeAssumption = fd.get('includeAssumption') === 'on';
     settings.includeAugsburgPeace = fd.get('includeAugsburgPeace') === 'on';
     settings.enableShift2 = fd.get('enableShift2') === 'on';
@@ -861,20 +866,35 @@
 
   function makeSettingsForm(){
     const form = document.createElement('form');
+    const curYear = viewDate.getFullYear();
+    const ys = (settings.yearStartSaldo || {});
+    const ySaldo = (ys[String(curYear)] !== undefined ? ys[String(curYear)] : 0);
+    const st = String(settings.federalState || 'BY').toUpperCase();
+
+    const stateOptions = (AZ_HOLIDAYS.STATES||[]).map(s=>{
+      const sel = (s.code === st) ? 'selected' : '';
+      return `<option value="${escapeHtml(s.code)}" ${sel}>${escapeHtml(s.name)}</option>`;
+    }).join('');
+
     form.innerHTML = `
       <div class="field">
-        <label>Firma / Name</label>
+        <label>Firma</label>
         <input name="companyName" type="text" value="${escapeHtml(settings.companyName||'Zaunteam')}" />
+      </div>
+
+      <div class="field">
+        <label>Name (für Export/PDF)</label>
+        <input name="personName" type="text" placeholder="z.B. Max Mustermann" value="${escapeHtml(settings.personName||'')}" />
       </div>
 
       <div class="grid2">
         <div class="field">
-          <label>Startdatum</label>
-          <input name="startDate" type="date" value="${escapeHtml(settings.startDate||'2024-01-01')}" />
+          <label>Bundesland (Feiertage)</label>
+          <select name="federalState" id="federalStateSel">${stateOptions}</select>
         </div>
         <div class="field">
-          <label>Startsaldo (Stunden)</label>
-          <input name="startSaldoHours" type="text" inputmode="decimal" value="${String(settings.startSaldoHours||0).replace('.',',')}" />
+          <label>Startsaldo Jahr ${curYear} (Stunden)</label>
+          <input name="yearStartSaldoHours" type="text" inputmode="decimal" value="${String(ySaldo||0).replace('.',',')}" />
         </div>
       </div>
 
@@ -891,39 +911,84 @@
 
       <div class="grid2">
         <div class="field">
-          <label>Rundung</label>
+          <label>Rundung (Minuten)</label>
           <select name="roundingMinutes">
-            ${[0,5,10,15].map(v=>`<option value="${v}" ${v===(settings.roundingMinutes||0)?'selected':''}>${v===0?'aus':'auf '+v+' min'}</option>`).join('')}
+            ${[0,5,10,15].map(v=>`<option value="${v}" ${Number(settings.roundingMinutes||0)===v?'selected':''}>${v}</option>`).join('')}
           </select>
         </div>
         <div class="field">
-          <label>2. Schicht</label>
-          <label style="display:flex;gap:10px;align-items:center;font-weight:700;color:#222;">
-            <input name="enableShift2" type="checkbox" ${settings.enableShift2?'checked':''} />
-            aktiv
+          <label>Beginn der Aufzeichnung (min. 2025)</label>
+          <input name="startDate" type="date" value="${escapeHtml(settings.startDate||'2025-01-01')}" />
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="field" id="assumptionWrap">
+          <label class="checkRow">
+            <input type="checkbox" name="includeAssumption" ${settings.includeAssumption?'checked':''} />
+            <span>Mariä Himmelfahrt (regional)</span>
           </label>
         </div>
+        <div class="field" id="augsburgWrap">
+          <label class="checkRow">
+            <input type="checkbox" name="includeAugsburgPeace" ${settings.includeAugsburgPeace?'checked':''} />
+            <span>Augsburger Friedensfest (nur Augsburg)</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="checkRow">
+          <input type="checkbox" name="enableShift2" ${settings.enableShift2?'checked':''} />
+          <span>2. Schicht aktivieren</span>
+        </label>
       </div>
 
       <hr class="sep"/>
 
       <div class="field">
-        <label>Feiertage Bayern</label>
-        <label style="display:flex;gap:10px;align-items:center;font-weight:700;color:#222;margin-top:8px;">
-          <input name="includeAssumption" type="checkbox" ${settings.includeAssumption?'checked':''}/>
-          Mariä Himmelfahrt (15.08)
-        </label>
-        <label style="display:flex;gap:10px;align-items:center;font-weight:700;color:#222;margin-top:8px;">
-          <input name="includeAugsburgPeace" type="checkbox" ${settings.includeAugsburgPeace?'checked':''}/>
-          Augsburger Friedensfest (08.08)
-        </label>
+        <label>Feiertage ${curYear} (Vorschau)</label>
+        <div class="holidayPreview" id="holidayPreview"></div>
       </div>
     `;
-    return form;
 
-    function escapeHtml(s){
-      return String(s).replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+    const stateSel = form.querySelector('#federalStateSel');
+    const assumptionWrap = form.querySelector('#assumptionWrap');
+    const augsburgWrap = form.querySelector('#augsburgWrap');
+    const preview = form.querySelector('#holidayPreview');
+
+    function refreshOptional(){
+      const code = String(stateSel.value||'BY').toUpperCase();
+      // Mariä Himmelfahrt: BY (regional) + SL
+      const showAssumption = (code === 'BY' || code === 'SL');
+      const showAugsburg = (code === 'BY');
+      assumptionWrap.style.display = showAssumption ? '' : 'none';
+      augsburgWrap.style.display = showAugsburg ? '' : 'none';
+      refreshPreview();
     }
+
+    function refreshPreview(){
+      const code = String(stateSel.value||'BY').toUpperCase();
+      const incAss = form.querySelector('input[name="includeAssumption"]').checked;
+      const incAug = form.querySelector('input[name="includeAugsburgPeace"]').checked;
+
+      const hol = AZ_HOLIDAYS.getHolidaysForState(curYear, code, {
+        includeAssumption: incAss,
+        includeAugsburgPeace: incAug,
+        forceDisableAssumption: (code === 'SL' && !incAss),
+      });
+
+      const entries = Array.from(hol.entries()).sort((a,b)=>a[0].localeCompare(b[0]));
+      preview.innerHTML = entries.map(([ds,name])=>{
+        const pretty = ds.replace(/-/g,'.');
+        return `<div class="holidayLine"><span class="holidayDate">${pretty}</span><span class="holidayName">${escapeHtml(name)}</span></div>`;
+      }).join('') || '<div style="color:#666">Keine</div>';
+    }
+
+    stateSel.addEventListener('change', refreshOptional);
+    refreshOptional();
+
+    return form;
   }
 
   // Export modal
@@ -1026,10 +1091,17 @@
         try{
           const data = JSON.parse(txt);
           if(!data || data.kind !== 'arbeitszeit-backup-v1') throw new Error('falsches Backup');
-          if(data.settings) settings = {...deepClone(DEFAULT_SETTINGS), ...data.settings};
+          if(data.settings){
+            settings = {...deepClone(DEFAULT_SETTINGS), ...data.settings};
+            settings.minYear = 2025;
+            if(!settings.yearStartSaldo || typeof settings.yearStartSaldo !== 'object') settings.yearStartSaldo = {};
+            delete settings.startSaldoHours;
+            if(!settings.federalState) settings.federalState = 'BY';
+            if(!settings.startDate || String(settings.startDate) < '2025-01-01') settings.startDate = '2025-01-01';
+          }
           if(Array.isArray(data.days)){
             for(const rec of data.days){
-              if(rec && rec.date) await AZ_DB.setDay(rec);
+              if(rec && rec.date && String(rec.date) >= '2025-01-01') await AZ_DB.setDay(rec);
             }
           }
           await AZ_DB.setSettings(settings);
@@ -1104,9 +1176,11 @@
 
   async function makePdfBlob(period){
     const rows = await buildExportRows(period);
+    const who = [settings.companyName||'Zaunteam', (settings.personName||'').trim()].filter(Boolean).join(' – ');
+    const titleBase = `Arbeitszeiterfassung – ${who}`;
     const title = (period === 'month')
-      ? `Arbeitszeiterfassung – ${MONTHS[viewDate.getMonth()]} ${viewDate.getFullYear()}`
-      : `Arbeitszeiterfassung – Jahr ${viewDate.getFullYear()}`;
+      ? `${titleBase} – ${MONTHS[viewDate.getMonth()]} ${viewDate.getFullYear()}`
+      : `${titleBase} – Jahr ${viewDate.getFullYear()}`;
 
     // build monospace table lines
     const header = `Datum     Typ         Start  Ende   Pause Soll   Ist    Diff   Ort`;
@@ -1187,9 +1261,70 @@
 
   async function importCsvRows(rows, strategy){
     // rows: objects from CSV, we expect "date" column exists
+    if(!Array.isArray(rows) || !rows.length) return;
+
+    // Robust header mapping (supports Excel/German headers and UTF-8 BOM)
+    const headerKeys = Object.keys(rows[0] || {});
+    const keyMap = new Map();
+    for(const k of headerKeys){
+      keyMap.set(normKey(k), k);
+    }
+
+    function normKey(k){
+      return String(k||'')
+        .replace(/^\uFEFF/,'')
+        .toLowerCase()
+        .trim()
+        .replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss')
+        .replace(/[^a-z0-9]/g,'');
+    }
+
+    function pick(r, ...candidates){
+      for(const c of candidates){
+        const k = keyMap.get(normKey(c));
+        if(k && r[k] !== undefined) return r[k];
+      }
+      // fallback: try case-insensitive direct match
+      for(const c of candidates){
+        const want = normKey(c);
+        for(const kk of Object.keys(r||{})){
+          if(normKey(kk) === want) return r[kk];
+        }
+      }
+      return '';
+    }
+
+    function normalizeDate(s){
+      const t = String(s||'').trim();
+      if(!t) return '';
+      // Already ISO
+      if(/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+      // dd.mm.yyyy or dd.mm.yy
+      let m = /^(\d{1,2})\.(\d{1,2})\.(\d{2}|\d{4})$/.exec(t);
+      if(m){
+        const dd = String(m[1]).padStart(2,'0');
+        const mm = String(m[2]).padStart(2,'0');
+        let yy = String(m[3]);
+        if(yy.length===2) yy = (Number(yy) >= 70 ? ('19'+yy) : ('20'+yy));
+        return `${yy}-${mm}-${dd}`;
+      }
+      // dd/mm/yyyy
+      m = /^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/.exec(t);
+      if(m){
+        const dd = String(m[1]).padStart(2,'0');
+        const mm = String(m[2]).padStart(2,'0');
+        let yy = String(m[3]);
+        if(yy.length===2) yy = (Number(yy) >= 70 ? ('19'+yy) : ('20'+yy));
+        return `${yy}-${mm}-${dd}`;
+      }
+      return '';
+    }
     if(strategy === 'replace'){
       // delete days for the imported range first
-      const dates = rows.map(r=>r.date).filter(Boolean).sort();
+      const dates = rows
+        .map(r=>normalizeDate(pick(r,'date','Datum','datum','Tag','tag')))
+        .filter(Boolean)
+        .sort();
       if(dates.length){
         const from = dates[0], to = dates[dates.length-1];
         const existing = await AZ_DB.getDaysInRange(from,to);
@@ -1200,20 +1335,24 @@
     }
 
     for(const r of rows){
-      const date = (r.date || '').trim();
+      const dateRaw = pick(r,'date','Datum','datum','Tag','tag');
+      const date = normalizeDate(dateRaw);
       if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
-      const type = fromTypeLabel((r.type||'').trim());
+      if(date < '2025-01-01') continue;
+
+      const typeRaw = pick(r,'type','Typ','typ','Tagestyp','tagestyp','Status');
+      const type = fromTypeLabel(String(typeRaw||'').trim());
 
       const rec = {
         date,
         type,
-        start1: (r.start1||'').trim(),
-        end1: (r.end1||'').trim(),
-        start2: (r.start2||'').trim(),
-        end2: (r.end2||'').trim(),
-        pauseMin: parsePauseMin(r.pause_h),
-        location: (r.location||'').trim(),
-        note: (r.note||'').trim(),
+        start1: String(pick(r,'start1','Start1','Start','Beginn','von','Von','Arbeitsbeginn','Startzeit')||'').trim(),
+        end1: String(pick(r,'end1','End1','Ende','bis','Bis','Arbeitsende','Endzeit')||'').trim(),
+        start2: String(pick(r,'start2','Start2','Start 2','Beginn2','von2')||'').trim(),
+        end2: String(pick(r,'end2','End2','Ende2','bis2')||'').trim(),
+        pauseMin: parsePauseMin(pick(r,'pause_h','Pause','Pausenzeit','Essens-/Pausenzeiten','pause','pauseh','pause_min','pauseMin')),
+        location: String(pick(r,'location','Ort','Baustelle','Einsatzort','Adresse')||'').trim(),
+        note: String(pick(r,'note','Notiz','Tagesnotiz','Bemerkung','Kommentar')||'').trim(),
         updatedAt: Date.now(),
       };
 
@@ -1223,9 +1362,25 @@
       await AZ_DB.setDay(rec);
     }
 
+    // jump to first imported month so the user sees the result immediately
+    const first = rows.map(r=>normalizeDate(pick(r,'date','Datum','datum','Tag'))).find(Boolean);
+    if(first){
+      const d = dateStrToDate(first);
+      viewDate = new Date(d.getFullYear(), d.getMonth(), 1);
+    }
+
     function parsePauseMin(s){
-      const v = (s||'0').toString().replace(',','.');
+      const raw = (s||'0').toString().trim();
+      if(!raw) return 0;
+      // accept minutes field
+      if(/min/i.test(raw) && /\d/.test(raw)){
+        const m = parseFloat(raw.replace(',','.')) || 0;
+        return Math.max(0, Math.round(m));
+      }
+      const v = raw.replace(',','.');
       const h = parseFloat(v) || 0;
+      // if the value looks like minutes (e.g. 30), accept heuristic when > 10
+      if(h > 10) return Math.max(0, Math.round(h));
       return Math.max(0, Math.round(h*60));
     }
     function fromTypeLabel(label){
@@ -1288,7 +1443,7 @@
     const tb = table.querySelector('tbody');
 
     let ySoll=0, yIst=0, yDiff=0;
-    let saldoEnd = yearCarryCache.get(monthKey(y,0)) ?? startSaldoMinutes();
+    let saldoEnd = yearCarryCache.get(monthKey(y,0)) ?? yearStartSaldoMinutes(y);
 
     for(let m0=0;m0<12;m0++){
       const carry = yearCarryCache.get(monthKey(y,m0)) ?? 0;
@@ -1367,7 +1522,13 @@
   // Month navigation
   $('#btnPrevMonth').addEventListener('click', async ()=>{
     closeEditor();
-    viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth()-1, 1);
+    const cand = new Date(viewDate.getFullYear(), viewDate.getMonth()-1, 1);
+    const minD = new Date(2025,0,1);
+    if(cand < minD){
+      toast('Vor 2025 ist deaktiviert');
+      return;
+    }
+    viewDate = cand;
     await loadMonth(viewDate.getFullYear(), viewDate.getMonth());
   });
   $('#btnNextMonth').addEventListener('click', async ()=>{
@@ -1380,10 +1541,55 @@
   await loadMonth(viewDate.getFullYear(), viewDate.getMonth());
   window.addEventListener('resize', refreshMhHeight);
 
-  // Service worker
+  // Service worker + Update verfügbar
   if('serviceWorker' in navigator){
     try{
-      await navigator.serviceWorker.register('./sw.js');
+      const reg = await navigator.serviceWorker.register('./sw.js');
+      let refreshing = false;
+
+      const showUpdate = ()=>{
+        if(elUpdateBanner) elUpdateBanner.classList.remove('hidden');
+      };
+      const hideUpdate = ()=>{
+        if(elUpdateBanner) elUpdateBanner.classList.add('hidden');
+      };
+
+      // If an update is already waiting, show it
+      if(reg.waiting && navigator.serviceWorker.controller){
+        showUpdate();
+      }
+
+      reg.addEventListener('updatefound', ()=>{
+        const nw = reg.installing;
+        if(!nw) return;
+        nw.addEventListener('statechange', ()=>{
+          if(nw.state === 'installed' && navigator.serviceWorker.controller){
+            showUpdate();
+          }
+        });
+      });
+
+      if(btnUpdateNow){
+        btnUpdateNow.addEventListener('click', ()=>{
+          // trigger activation of the new SW
+          if(reg.waiting){
+            reg.waiting.postMessage({type:'SKIP_WAITING'});
+          }else if(reg.installing){
+            reg.installing.postMessage({type:'SKIP_WAITING'});
+          }else{
+            navigator.serviceWorker.getRegistration().then(r=>{
+              if(r && r.waiting) r.waiting.postMessage({type:'SKIP_WAITING'});
+            });
+          }
+        });
+      }
+
+      navigator.serviceWorker.addEventListener('controllerchange', ()=>{
+        if(refreshing) return;
+        refreshing = true;
+        hideUpdate();
+        window.location.reload();
+      });
     }catch(e){
       console.warn('SW register failed', e);
     }
