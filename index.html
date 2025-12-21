@@ -12,7 +12,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#111111" />
-  <title>Arbeitszeit-Tracker (Team) v13 - Offline</title>
+  <title>Arbeitszeit-Tracker (Team) v14 - Offline</title>
   <style>
     :root{
       --bg:#f3f4f6;
@@ -313,7 +313,7 @@ script{display:none !important;}
     <div class="brand">
       <div class="logo" aria-hidden="true"></div>
       <div class="title">
-        <b>Arbeitszeit-Tracker (Team) v13</b>
+        <b>Arbeitszeit-Tracker (Team) v14</b>
         <span>Offline - lokal gespeichert - Urlaub/Krank/Feiertage reduzieren Soll - Export als Excel/CSV</span>
       </div>
     </div>
@@ -1192,7 +1192,17 @@ script{display:none !important;}
       return defaultState();
     }
   }
-  function saveState(){
+  
+  // -----------------------------
+  // v14: UI-Prefs (merken pro Gerät)
+  // -----------------------------
+  function getUi(){ state.ui = state.ui || {}; return state.ui; }
+  function saveUiPrefs(patch){
+    const ui = getUi();
+    Object.assign(ui, patch || {});
+    saveState();
+  }
+function saveState(){
     localStorage.setItem(APP_KEY, JSON.stringify(state));
     setStatus("OK", true);
   }
@@ -1204,21 +1214,18 @@ script{display:none !important;}
   let state = loadState();
 
   const TAB_DEF = [
-    ["dashboard","Eingabe"],
-    ["overview","Uebersicht"],
-    ["timesheet","Eintraege"],
-    ["urlaub","Urlaub"],
-    ["holidays_auto","Feiertage Auto"],
-    ["settings","Einstellungen"],
-    ["export","Export/WhatsApp"]
+    ["dashboard","Tracker"],
+    ["settings","Einstellungen"]
   ];
 
   function renderTabs(){
     const wrap = $("tabs");
     wrap.innerHTML = "";
-    TAB_DEF.forEach(([key, label], idx) => {
+    const ui = getUi();
+    const activeKey = (ui.lastView && TAB_DEF.some(t=>t[0]===ui.lastView)) ? ui.lastView : TAB_DEF[0][0];
+    TAB_DEF.forEach(([key, label]) => {
       const b = document.createElement("button");
-      b.className = "tab" + (idx===0 ? " active" : "");
+      b.className = "tab" + (key===activeKey ? " active" : "");
       b.textContent = label;
       b.dataset.view = key;
       b.addEventListener("click", () => showView(key));
@@ -1227,18 +1234,38 @@ script{display:none !important;}
   }
 
   function showView(key){
-    document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.view===key));
+    const ui = getUi();
+
+    // Tabs: only highlight if the key exists in TAB_DEF
+    document.querySelectorAll(".tab").forEach(t => {
+      const k = t.dataset.view;
+      t.classList.toggle("active", k===key);
+    });
+
+    // Hide all views first
     document.querySelectorAll(".view").forEach(v => v.classList.add("hide"));
-    $("view_"+key).classList.remove("hide");
 
-    if(key==="dashboard"){ refreshDashboard(); }
-    if(key==="overview"){ refreshOverview(); }
-    if(key==="timesheet"){ refreshTimesheet(); }
-    if(key==="urlaub"){ refreshVacation(); }
-    if(key==="holidays_auto"){ refreshHolidaysAuto(); }
-    if(key==="settings"){ refreshSettings(); }
-    if(key==="export"){ refreshExport(); }
+    // "Tracker" = Eingabe + Einträge in EINER Ansicht
+    if(key === "dashboard"){
+      $("view_dashboard").classList.remove("hide");
+      // show month cards/list directly under tracker to reduce confusion
+      const ts = $("view_timesheet");
+      if(ts) ts.classList.remove("hide");
+    } else if(key === "settings"){
+      $("view_settings").classList.remove("hide");
+    } else {
+      // allow internal navigation (Export, Urlaub, etc.) via buttons, but not as tabs
+      const v = $("view_" + key);
+      if(v) v.classList.remove("hide");
+      // keep a "back" memory
+      if(key !== "export") ui.lastNonExportView = ui.lastNonExportView || "dashboard";
+    }
 
+    // Persist last main tab (dashboard/settings) so it doesn't jump
+    if(key === "dashboard" || key === "settings"){
+      saveUiPrefs({ lastView: key });
+    }
+    // Scroll top for clarity
     window.scrollTo({top:0, behavior:"smooth"});
   }
 
@@ -3539,6 +3566,33 @@ ${monthSheet}
   $("btnAddEntry").onclick = addWorkEntry;
 
   $("btnQuickToday").onclick = () => {
+    
+    // v14: restore UI prefs (Zeitraum/Monat merken)
+    const ui = getUi();
+    if(ui.dashScope && $("selScope")) $("selScope").value = ui.dashScope;
+    if(ui.dashFrom && $("fromDate")) $("fromDate").value = ui.dashFrom;
+    if(ui.dashTo && $("toDate")) $("toDate").value = ui.dashTo;
+
+    if(ui.tsYear && $("selYear")) $("selYear").value = String(ui.tsYear);
+    if(ui.tsMonth && $("selMonth2")) $("selMonth2").value = ui.tsMonth;
+
+    // save prefs on change
+    if($("selScope")){
+      $("selScope").onchange = () => { saveUiPrefs({dashScope: $("selScope").value}); refreshDashboard(); };
+    }
+    if($("fromDate")){
+      $("fromDate").onchange = () => { saveUiPrefs({dashFrom: $("fromDate").value}); refreshDashboard(); };
+    }
+    if($("toDate")){
+      $("toDate").onchange = () => { saveUiPrefs({dashTo: $("toDate").value}); refreshDashboard(); };
+    }
+    if($("selYear")){
+      $("selYear").onchange = () => { saveUiPrefs({tsYear: $("selYear").value}); refreshTimesheet(); };
+    }
+    if($("selMonth2")){
+      $("selMonth2").onchange = () => { saveUiPrefs({tsMonth: $("selMonth2").value}); refreshTimesheet(); };
+    }
+
     $("inDate").value = todayISO();
     showView("dashboard");
     setTimeout(()=> $("inStart").focus(), 150);
@@ -3915,7 +3969,9 @@ ${monthSheet}
     exportStamp();
   };
 
-  $("btnExportNow").onclick = () => showView("export");
+  if($("btnBackFromExport")) $("btnBackFromExport").onclick = () => { const ui=getUi(); showView(ui.lastNonExportView || "dashboard"); };
+
+  $("btnExportNow").onclick = () => { const ui=getUi(); ui.lastNonExportView = ui.lastView || "dashboard"; saveState(); showView("export"); };
   $("btnGoTimesheet").onclick = () => showView("timesheet");
   $("btnGoOverview").onclick = () => showView("overview");
 
@@ -3942,6 +3998,8 @@ ${monthSheet}
     saveState();
     renderTabs();
     refreshPeopleSelectors();
+    // v14: go to last view (no tab-jumps)
+    showView((getUi().lastView && TAB_DEF.some(t=>t[0]===getUi().lastView)) ? getUi().lastView : 'dashboard');
 
     $("inDate").value = todayISO();
     $("fromDate").value = startOfWeekISO(todayISO());
@@ -3965,20 +4023,7 @@ ${monthSheet}
       }
     };
 
-    // First-run: name setup if still "Ich"
-    if(state.people.length === 1 && (state.people[0].name || "").trim().toLowerCase() === "ich"){
-      $("myNameInput").value = "";
-      showModal("nameSetupModal");
-      $("btnSaveMyName").onclick = () => {
-        const n = ($("myNameInput").value || "").trim();
-        if(!n){ alert("Bitte Name eingeben."); return; }
-        state.people[0].name = n;
-        saveState();
-        refreshAll(true);
-        closeAllModals();
-      };
-      $("btnSkipMyName").onclick = () => closeAllModals();
-    }
+    // v14: kein nerviges Name-Modal mehr (Name kann in Einstellungen geändert werden)
 
 
     // CSV Import wiring

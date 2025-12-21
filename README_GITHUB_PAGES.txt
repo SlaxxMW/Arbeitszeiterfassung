@@ -1,7 +1,11 @@
-Arbeitszeit Tracker PWA – GitHub Pages (v13)
+Arbeitszeit Tracker PWA – GitHub Pages (v14 Simple)
 
-Fix:
-- Start-Fehler "month/monat is not defined" behoben (Monat wird jetzt korrekt gesetzt)
+Änderungen:
+- Tabs stark reduziert: nur Tracker + Einstellungen
+- Tracker zeigt Eingabe + Einträge in EINER Ansicht (kein Verwirren)
+- Zeitraum/Monat bleiben gespeichert (springen nicht zurück)
+- Kein nerviges Name-Modal beim Start
+- Export hat Zurück-Button
 
 Install:
 - Dateien ins GitHub Repo ROOT
