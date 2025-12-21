@@ -3,7 +3,7 @@
 <head>
 
   <link rel="manifest" href="manifest.webmanifest">
-  <meta name="theme-color" content="#f6f8ff">
+  <meta name="theme-color" content="#f0f1f6">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Arbeitszeit">
@@ -12,7 +12,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#111111" />
-  <title>Arbeitszeit-Tracker (Single) v17 – One Screen - Offline</title>
+  <title>Arbeitszeiterfassung v18 – Simple Month List</title>
   <style>
     :root{
       --bg:#f3f4f6;
@@ -305,144 +305,187 @@ script{display:none !important;}
 .dayCard .actions button{padding:8px 10px;}
 .dayCard:hover{border-color: rgba(37,99,235,0.35);}
 
-
 /* ===========================
-   v17 ONE SCREEN (Single User)
+   v18 SIMPLE LIST (Single user)
    =========================== */
 :root{
-  --bg:#f6f8ff;
+  --bg1:#f0f1f6;
+  --bg2:#f6f7fb;
   --card:#ffffff;
-  --ink:#0f172a;
-  --muted:#475569;
-  --line:rgba(15,23,42,.10);
-  --accent:#2563eb;
-  --accent2:#16a34a;
-  --danger:#ef4444;
-  --shadow:0 18px 40px rgba(2,6,23,.10);
-  --radius:22px;
+  --ink:#111827;
+  --muted:#6b7280;
+  --line:rgba(17,24,39,.12);
+  --accent:#111827;
+  --soft:#e9edf7;
+  --good:#0f766e;
+  --bad:#b91c1c;
+  --warn:#a16207;
 }
 body{
-  background:
-    radial-gradient(1100px 560px at 20% -10%, rgba(37,99,235,.18), transparent 62%),
-    radial-gradient(900px 520px at 90% 0%, rgba(22,163,74,.14), transparent 58%),
-    linear-gradient(180deg, #f6f8ff 0%, #f3f6ff 100%);
-  color:var(--ink);
+  background: linear-gradient(180deg,var(--bg1),var(--bg2));
 }
 header{
-  position:sticky; top:0; z-index:50;
-  background: rgba(246,248,255,.82);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--line);
+  position:sticky; top:0; z-index:20;
+  padding:10px 12px 8px;
 }
-header .toprow{padding:14px 14px 10px;}
-header .brand .logo{
-  width:44px;height:44px;border-radius:16px;
-  background: linear-gradient(135deg, rgba(37,99,235,.95), rgba(22,163,74,.78));
-  box-shadow: 0 14px 26px rgba(2,6,23,.12);
-}
-header .title span{color: rgba(15,23,42,.62);}
 #tabs{display:none !important;}
-main{padding: 14px; max-width: 1100px; margin: 0 auto 40px;}
-.card{
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-}
-h2{font-size:18px;}
-.sub{color: rgba(15,23,42,.62);}
-button{
-  border-radius:16px !important;
-  border: 1px solid var(--line) !important;
-  background: #fff;
-  color: var(--ink);
-}
-button:hover{filter: brightness(0.99);}
-.btnPrimary{
-  background: linear-gradient(135deg, rgba(37,99,235,.98), rgba(22,163,74,.85)) !important;
-  border: 0 !important;
-  color:#fff !important;
-}
-.btnSoft{background: rgba(255,255,255,.75) !important;}
-.btnDanger{background: rgba(239,68,68,.10) !important; border-color: rgba(239,68,68,.22) !important;}
-input, select, textarea{
-  background: rgba(248,250,252,.95) !important;
-  border: 1px solid rgba(15,23,42,.12) !important;
-  color: var(--ink) !important;
-  border-radius: 16px !important;
-}
-label{color: rgba(15,23,42,.70);}
-.kpiGrid{
+/* hide confusing cards */
+#view_dashboard{display:none !important;}
+/* show only timesheet as main */
+#view_timesheet{display:block !important;}
+/* compact */
+.sub, .hintBox, .tipBox {display:none !important;}
+/* month header like screenshot */
+.monthWrap{
   display:grid;
-  grid-template-columns: repeat(4, minmax(160px, 1fr));
-  gap: 10px;
-}
-@media (max-width: 900px){
-  .kpiGrid{grid-template-columns: repeat(2, minmax(150px, 1fr));}
-}
-.kpiCard{
+  grid-template-columns: 1.1fr 2fr;
+  gap:0;
   border:1px solid var(--line);
-  border-radius: 18px;
-  padding: 10px 12px;
-  background: linear-gradient(180deg, rgba(37,99,235,.06), rgba(255,255,255,.96));
+  border-radius:14px;
+  overflow:hidden;
+  box-shadow: var(--shadow2);
 }
-.kpiCard .k{font-size:12px; color: rgba(15,23,42,.60);}
-.kpiCard .v{font-weight:900; font-size:18px; margin-top:6px;}
-.kpiCard.pos .v{color: var(--accent2);}
-.kpiCard.neg .v{color: var(--danger);}
-.sectionHead{
-  display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
-  margin-bottom:10px;
+.monthLeft, .monthRight{
+  background: #d8d2dd;
 }
-.sectionHead .tag{
-  display:inline-flex; gap:8px; align-items:center;
-  padding:6px 10px; border-radius:999px;
-  background: rgba(37,99,235,.10);
-  border: 1px solid rgba(37,99,235,.18);
-  color: rgba(15,23,42,.75);
-  font-weight: 800; font-size:12px;
+.monthLeft{
+  border-right:1px solid rgba(17,24,39,.14);
+  padding:10px 10px;
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
 }
-.rowTight{display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;}
+.monthLeft .name{
+  font-weight:900;
+  font-size:16px;
+}
+.monthRight{
+  padding:10px 10px;
+}
+.monthRightTop{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+}
+.monthTitle{
+  font-weight:900;
+  font-size:18px;
+}
+.monthNav{
+  display:flex; gap:8px; align-items:center;
+}
+.iconBtnSmall{
+  width:36px;height:36px;border-radius:10px;
+  border:1px solid rgba(17,24,39,.18);
+  background: rgba(255,255,255,.55);
+  display:inline-flex; align-items:center; justify-content:center;
+  font-size:18px;
+}
+.kpiList{
+  margin-top:8px;
+  display:grid;
+  grid-template-columns: 1fr auto;
+  row-gap:6px;
+  column-gap:10px;
+  font-weight:800;
+}
+.kpiList .lab{color: rgba(17,24,39,.78);}
+.kpiList .val{font-variant-numeric: tabular-nums; text-align:right;}
+.kpiList .val.good{color: var(--good);}
+.kpiList .val.bad{color: var(--bad);}
+/* list */
+#timesheetScroller{
+  margin-top:10px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  overflow:hidden;
+  box-shadow: var(--shadow2);
+  background:#fff;
+}
+#dayCards{
+  max-height: calc(100vh - 220px);
+  overflow-y:auto;
+  -webkit-overflow-scrolling: touch;
+}
+.dayCard{
+  padding:10px 12px !important;
+  border-bottom:1px solid rgba(17,24,39,.08) !important;
+  display:grid !important;
+  grid-template-columns: 1fr auto;
+  gap:10px;
+  align-items:center;
+}
+.dayCard:hover{background: rgba(17,24,39,.02);}
+.dayCard .title{font-weight:900 !important;}
+.dayCard .meta{color: rgba(17,24,39,.70) !important;}
+.dayCard .right{
+  text-align:right;
+  font-weight:900;
+  font-size:20px;
+  font-variant-numeric: tabular-nums;
+}
+.dayCard .diff{
+  font-size:16px;
+  margin-top:2px;
+}
+.dayCard .diff.good{color: var(--good);}
+.dayCard .diff.bad{color: var(--bad);}
+.dayCard .chipRow{margin-top:6px;}
+.chip{background: rgba(17,24,39,.06) !important; border:1px solid rgba(17,24,39,.10) !important;}
+/* editor bottom sheet */
+#dayEditModal{
+  left:0 !important; right:0 !important;
+  top:auto !important; bottom:0 !important;
+  transform:none !important;
+  width:100% !important;
+  max-width:none !important;
+  border-radius:18px 18px 0 0 !important;
+  max-height: 82vh !important;
+  overflow:auto !important;
+}
+#modalBackdrop{backdrop-filter: blur(2px);}
+/* app header buttons */
+.headerBar{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+}
+.headerTitle{
+  font-weight:1000;
+  font-size:18px;
+}
+.headerBtns{display:flex; gap:8px; align-items:center;}
+.headerBtns button{border-radius:12px !important;}
+@media (max-width:520px){
+  .monthWrap{grid-template-columns: 1fr 1.6fr;}
+  .monthTitle{font-size:17px;}
+  #dayCards{max-height: calc(100vh - 240px);}
+}
 </style>
 </head>
 
 <body>
+
 <header>
-  <div class="toprow">
-    <div class="brand">
-      <div class="logo" aria-hidden="true"></div>
-      <div class="title">
-        <b>Arbeitszeit-Tracker (Single) v17 – One Screen</b>
-        <span>Offline - lokal gespeichert - Urlaub/Krank/Feiertage reduzieren Soll - Export als Excel/CSV</span>
-      </div>
-    </div>
-    <div class="actions">
-      <button class="btnSoft" id="btnQuickToday">+ Heute</button>
-      <button class="btnSoft" id="btnOpenSettings">⚙︎ Einstellungen</button>
+  <div class="headerBar">
+    <div class="headerTitle">Arbeitszeiterfassung</div>
+    <div class="headerBtns">
+      <button class="btnSoft" id="btnToday">+ Heute</button>
+      <button class="btnSoft" id="btnYear">Jahr</button>
+      <button class="btnSoft" id="btnOpenSettings">⚙︎</button>
       <button class="btnPrimary" id="btnExportNow">Export</button>
     </div>
   </div>
-  <div class="seg" id="tabs"></div>
 </header>
+
 
 <main>
   <!-- Dashboard -->
   <section id="view_dashboard" class="view">
     <div class="grid cols2">
       <div class="card">
-        <div class="sectionHead"><h2>Überblick</h2><span class="tag">Live</span></div>
+        <h2>Live-Ueberblick</h2>
         <div class="sub">Tag - Woche - Monat - Jahr - Ueber/Minus - Urlaubrest (Feiertage/Abwesenheit reduzieren Soll automatisch)</div>
-        <div id="kpiGrid" class="kpiGrid" style="margin-top:12px"></div>
 
         <div class="row" style="margin-bottom:10px">
           <div class="field" style="min-width:260px; flex: 1 1 260px;">
-  <label>Profil</label>
-  <div class="pill" style="padding:10px 12px; border-radius:16px; border:1px solid rgba(15,23,42,.12); background:rgba(248,250,252,.95)">
-    <b id="profileName">Ich</b>
-    <span style="color:rgba(15,23,42,.55)"> (Single)</span>
-  </div>
-  <select id="selPerson" style="display:none"></select>
-</div>
+            <label>Person</label>
+            <select id="selPerson"></select>
+          </div>
           <div class="field">
             <label>Zeitraum</label>
             <select id="selScope">
@@ -483,7 +526,7 @@ label{color: rgba(15,23,42,.70);}
       </div>
 
       <div class="card">
-        <div class="sectionHead"><h2>Eintragen</h2><span class="tag">1 Minute</span></div>
+        <h2>Schnell-Eingabe</h2>
       <div id="quickTotals" class="totalsStrip"></div>
         <div class="sub">Arbeit eintragen (auch rueckwirkend) - oder Abwesenheit</div>
 
@@ -530,7 +573,7 @@ label{color: rgba(15,23,42,.70);}
   </section>
 
   <!-- Uebersichten -->
-  <section id="view_overview" class="view">
+  <section id="view_overview" class="view hide">
     <div class="card">
       <h2>Uebersichten</h2>
       <div class="sub">Woche - Monat - Jahr (mit Tageswerten und Jahreswerten)</div>
@@ -611,7 +654,7 @@ label{color: rgba(15,23,42,.70);}
   </section>
 
   <!-- Timesheet -->
-  <section id="view_timesheet" class="view">
+  <section id="view_timesheet" class="view hide">
     <div class="card">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap">
   <h2 style="margin:0">Eintraege (editieren/loeschen)</h2>
@@ -857,14 +900,14 @@ label{color: rgba(15,23,42,.70);}
   <section id="view_settings" class="view hide">
     <div class="grid cols2">
       <div class="card">
-        <div class='sectionHead'><h2>Einstellungen</h2><span class='tag'>Einmal einstellen</span><button id='btnCloseSettings' class='btnSoft'>Schließen</button></div>
-<div class='rowTight'>
-  <div class='field' style='min-width:260px; flex:1 1 260px'>
-    <label>Dein Name (für Export-Datei)</label>
-    <input id='singleName' placeholder='z.B. Markus Wolf'>
+        <h2>Einstellungen</h2>
+<div class='row'>
+  <div class='field' style='min-width:260px;flex:1 1 260px'>
+    <label>Name (für Anzeige/Export)</label>
+    <input id='cfgSingleName' placeholder='z.B. Zaunteam / Markus'>
   </div>
 </div>
-<div class='hr' style='margin:12px 0'></div>
+<div class='hr'></div>
         <div class="sub">Eckdaten + Team + Feiertage</div>
 
         <div class="row">
@@ -1107,7 +1150,22 @@ label{color: rgba(15,23,42,.70);}
   </div>
 </div>
 
-<div id="dayEditModal" class="hide" style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:9999;max-width:760px;width:calc(100% - 24px);">
+<div 
+<div id="yearModal" class="hide" style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:9999;max-width:820px;width:calc(100% - 24px);background:#fff;border:1px solid rgba(17,24,39,.12);border-radius:16px;box-shadow:0 18px 40px rgba(0,0,0,.18);overflow:auto;max-height:86vh;">
+  <div style="padding:12px 14px;border-bottom:1px solid rgba(17,24,39,.10);display:flex;align-items:center;justify-content:space-between;gap:10px;background:#f7f7fb;">
+    <div>
+      <div style="font-weight:1000;font-size:18px;">Jahresübersicht</div>
+      <div id="yearModalSub" style="color:rgba(17,24,39,.60);font-weight:700;font-size:12px;">-</div>
+    </div>
+    <button class="btnSoft" id="btnYearClose">Schließen</button>
+  </div>
+  <div style="padding:12px 14px;">
+    <div id="yearKpis" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>
+    <div style="height:10px"></div>
+    <div id="yearMonths" style="border:1px solid rgba(17,24,39,.10);border-radius:14px;overflow:hidden;"></div>
+  </div>
+</div>
+id="dayEditModal" class="hide" style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:9999;max-width:760px;width:calc(100% - 24px);">
   <div class="card" style="box-shadow:0 20px 60px rgba(0,0,0,.28);">
     <div class="row" style="align-items:center; justify-content:space-between;">
       <div>
@@ -1173,15 +1231,7 @@ label{color: rgba(15,23,42,.70);}
         Urlaub/Krank/Feiertag werden automatisch als <b>8h</b> (bzw. Soll/Tag) gutgeschrieben, wenn es ein Arbeitstag ist.
         "Sonst" reduziert Soll auf 0.
       </div>
-      <div class="row" style="margin-top:10px">
-        <button class="btnPrimary" id="btnDayEditSaveAbs">Speichern</button>
-        <button class="btnDanger" id="btnDayEditClearDay">Tag leeren</button>
-      </div>
-    </div>
-
-  </div>
-</div>
-
+      <div class="row"
 <script>
 (() => {
   "use strict";
@@ -1266,6 +1316,7 @@ label{color: rgba(15,23,42,.70);}
     return {
       version: 2,
       cfg: { workdaysPerWeek: 5, weeklyHours: 40, vacationDaysPerYear: 30, holidayState: "BY", holidayOptAssumptionBY: true, holidayOptPeaceAugsburg: false, holidayOptCorpusPartial: false },
+      singleName: "Zaunteam",
       people: [{ id: crypto.randomUUID(), name: "Ich" }],
       entries: [],
       aggregates: {},
@@ -1325,51 +1376,89 @@ function saveState(){
 
   let state = loadState();
 
-  const TAB_DEF = [];
+  const TAB_DEF = [
+    ["dashboard","Tracker"],
+    ["settings","Einstellungen"]
+  ];
 
-  function renderTabs(){ const wrap=$("tabs"); if(wrap) wrap.innerHTML=""; }
-
-  function showView(key){
-    // v17 One Screen: always show dashboard + overview + timesheet
-    document.querySelectorAll(".view").forEach(v => v.classList.add("hide"));
-    $("view_dashboard").classList.remove("hide");
-    if($("view_overview")) $("view_overview").classList.remove("hide");
-    if($("view_timesheet")) $("view_timesheet").classList.remove("hide");
-
-    if(key === "export" && $("view_export")) $("view_export").classList.remove("hide");
-    if(key === "settings" && $("view_settings")) $("view_settings").classList.remove("hide");
-
-    window.scrollTo({top:0, behavior:"smooth"});
+  function renderTabs(){
+    const wrap = $("tabs");
+    wrap.innerHTML = "";
+    const ui = getUi();
+    const activeKey = (ui.lastView && TAB_DEF.some(t=>t[0]===ui.lastView)) ? ui.lastView : TAB_DEF[0][0];
+    TAB_DEF.forEach(([key, label]) => {
+      const b = document.createElement("button");
+      b.className = "tab" + (key===activeKey ? " active" : "");
+      b.textContent = label;
+      b.dataset.view = key;
+      b.addEventListener("click", () => showView(key));
+      wrap.appendChild(b);
+    });
   }
 
-  function getActivePersonId(){
-    // v17 Single: exactly one person
-    if(!state.people || !state.people.length){
-      state.people = [{id:"me", name:"Ich"}];
+  function showView(key){
+    const ui = getUi();
+
+    // Tabs: only highlight if the key exists in TAB_DEF
+    document.querySelectorAll(".tab").forEach(t => {
+      const k = t.dataset.view;
+      t.classList.toggle("active", k===key);
+    });
+
+    // Hide all views first
+    document.querySelectorAll(".view").forEach(v => v.classList.add("hide"));
+
+    // "Tracker" = Eingabe + Einträge in EINER Ansicht
+    if(key === "dashboard"){
+      $("view_dashboard").classList.remove("hide");
+      // show month cards/list directly under tracker to reduce confusion
+      const ts = $("view_timesheet");
+      if(ts) ts.classList.remove("hide");
+    } else if(key === "settings"){
+      $("view_settings").classList.remove("hide");
+    } else {
+      // allow internal navigation (Export, Urlaub, etc.) via buttons, but not as tabs
+      const v = $("view_" + key);
+      if(v) v.classList.remove("hide");
+      // keep a "back" memory
+      if(key !== "export") ui.lastNonExportView = ui.lastNonExportView || "dashboard";
     }
+
+    // Persist last main tab (dashboard/settings) so it doesn't jump
+    if(key === "dashboard" || key === "settings"){
+      saveUiPrefs({ lastView: key });
+    }
+    // Scroll top for clarity
+    }
+
+  function getActivePersonId(){
+    // v18 single user
+    if(!state.people || !state.people.length){ state.people=[{id:"me", name: (state.singleName||"Zaunteam")}]; }
+    if(state.people.length!==1){ state.people=[state.people[0]]; }
+    if(!state.people[0].id) state.people[0].id="me";
+    if(!state.people[0].name) state.people[0].name=(state.singleName||"Zaunteam");
+    state.ui.activePersonId = state.people[0].id;
     return state.people[0].id;
+  });
   }
 
   function refreshPeopleSelectors(){
-    // v17 Single: keep exactly one person
-    state.people = state.people && state.people.length ? state.people : [{id:"me", name:"Ich"}];
-    if(state.people.length !== 1) state.people = [state.people[0]];
-    if(!state.people[0].id) state.people[0].id = "me";
-    if(!state.people[0].name) state.people[0].name = "Ich";
+    // v18 single user
+    state.people = state.people && state.people.length ? state.people : [{id:"me", name:(state.singleName||"Zaunteam")}];
+    if(state.people.length!==1) state.people=[state.people[0]];
+    if(!state.people[0].id) state.people[0].id="me";
+    state.people[0].name = (state.singleName||state.people[0].name||"Zaunteam");
+    state.ui.activePersonId = state.people[0].id;
 
-    const sel = $("selPerson");
-    if(sel){
-      sel.innerHTML = "";
-      const opt = document.createElement("option");
-      opt.value = state.people[0].id;
-      opt.textContent = state.people[0].name;
-      sel.appendChild(opt);
-      sel.value = state.people[0].id;
+    const els = [ $("selPerson"), $("selPerson2"), $("selPerson3") ].filter(Boolean);
+    for(const el of els){
+      peopleOptions(el, state.people[0].id);
+      el.value = state.people[0].id;
+      el.onchange = ()=>{};
+      el.style.display="none";
     }
-    const pn = $("profileName");
-    if(pn) pn.textContent = state.people[0].name || "Ich";
-    const sn = $("singleName");
-    if(sn && !sn.value) sn.value = state.people[0].name || "Ich";
+  };
+    });
   }
 
   function entriesFor(personId){ return state.entries.filter(e => e.personId === personId); }
@@ -1768,6 +1857,8 @@ function saveState(){
     $(id).classList.add("hide");
     $("modalBackdrop").classList.add("hide");
   }
+  function closeModal(id){ $(id).classList.add('hide'); $('modalBackdrop').classList.add('hide'); }
+
   function closeAllModals(){
     $("nameSetupModal").classList.add("hide");
     $("dayEditModal").classList.add("hide");
@@ -2166,38 +2257,6 @@ function refreshDashboard(){
     $("kpiHolidayCountYear").textContent = String(holidaysForYear(yearNow).length);
 
     $("inDate").value = $("inDate").value || nowISO;
-    // v17 KPI grid (Heute/Woche/Monat/Jahr + Urlaub)
-    const kpi = $("kpiGrid");
-    if(kpi){
-      const today = todayISO();
-      const week = weekRangeISO(today);
-      const monthISO = `${today.slice(0,7)}-01`;
-      const y = Number(today.slice(0,4));
-      const dayP = computePeriod(personId, today, today);
-      const weekP = computePeriod(personId, week.from, week.to);
-      const monthP = computePeriod(personId, startOfMonthISO(monthISO), endOfMonthISO(monthISO));
-      const yearP = computePeriod(personId, startOfYearISO(y), endOfYearISO(y));
-      const carry = getCarry(personId, y).hours || 0;
-      const yearSaldo = yearP.diff + carry;
-
-      const vacTaken = (state.vacTaken && state.vacTaken[personId] && state.vacTaken[personId][String(y)]) ? Number(state.vacTaken[personId][String(y)]) : 0;
-      const vacTotal = (state.vacTotal && state.vacTotal[personId] && state.vacTotal[personId][String(y)]) ? Number(state.vacTotal[personId][String(y)]) : (state.cfg && state.cfg.vacPerYear ? Number(state.cfg.vacPerYear) : 30);
-      const vacRest = Math.max(0, vacTotal - vacTaken);
-
-      function box(label, value, cls){
-        return `<div class="kpiCard ${cls||""}"><div class="k">${escapeHtml(label)}</div><div class="v mono">${escapeHtml(value)}</div></div>`;
-      }
-      kpi.innerHTML =
-        box("Heute (Saldo)", signedHHMM(dayP.diff), dayP.diff>=0?"pos":"neg") +
-        box("Woche (Saldo)", signedHHMM(weekP.diff), weekP.diff>=0?"pos":"neg") +
-        box("Monat (Saldo)", signedHHMM(monthP.diff), monthP.diff>=0?"pos":"neg") +
-        box("Jahr (Saldo)", signedHHMM(yearSaldo), yearSaldo>=0?"pos":"pos") +
-        box("Urlaub Rest", String(vacRest), "neutral") +
-        box("Urlaub genommen", String(vacTaken), "neutral") +
-        box("Krank (Jahr)", String(yearP.sickDays||0), "neutral") +
-        box("Feiertage (Jahr)", String(yearP.holidayDays||0), "neutral");
-    }
-
   }
 
   
@@ -2237,7 +2296,19 @@ function refreshDashboard(){
   }
 
   function monthNameLong(mm){
-    const names = {"01":"Januar","02":"Februar","03":"März","04":"April","05":"Mai","06":"Juni","07":"Juli","08":"August","09":"September","10":"Oktober","11":"November","12":"Dezember"};
+    const names = {"01":"Januar","02":"Februar","03":"März","04":"April","05":"Mai","06":"Juni","07":"Juli","08":"August","09":"September","10":"Oktober","11":"November","12":"Dezember"}
+
+  function stepTimesheetMonth(delta){
+    const y = Number($("tsYear").value);
+    const m = Number($("tsMonth").value);
+    const d = new Date(y, m-1, 1);
+    d.setMonth(d.getMonth() + delta);
+    $("tsYear").value = String(d.getFullYear());
+    $("tsMonth").value = String(d.getMonth()+1).padStart(2,"0");
+    saveUiPrefs({ tsYear: $("tsYear").value, tsMonth: $("tsMonth").value });
+    refreshTimesheet();
+  }
+;
     return names[String(mm).padStart(2,"0")] || String(mm);
   }
   function enumerateDaysRange(fromISO, toISO){
@@ -2308,23 +2379,36 @@ function refreshDashboard(){
 
     head.innerHTML = `
       <div class="monthWrap">
-        <div class="entryHeader">
-          <div>
-            <div class="title">${monthNameLong(month)} ${year}</div>
-            <div class="sub">Soll/Ist/Saldo für den Monat • Tage sind anklickbar/editierbar</div>
+        <div class="monthLeft">
+          <div class="name">${escapeHtml((state.singleName||state.people?.[0]?.name||"Zaunteam"))}</div>
+          <button class="iconBtnSmall" id="btnOpenSettings2" title="Einstellungen">🔧</button>
+        </div>
+        <div class="monthRight">
+          <div class="monthRightTop">
+            <div class="monthTitle">${monthNameLong(month)} ${year}</div>
+            <div class="monthNav">
+              <button class="iconBtnSmall" id="btnPrevMonth" title="Zurück">‹</button>
+              <button class="iconBtnSmall" id="btnNextMonth" title="Weiter">›</button>
+            </div>
+          </div>
+          <div class="kpiList">
+            <div class="lab">Soll-Stunden</div><div class="val">${hoursToHHMM(period.sollH)}</div>
+            <div class="lab">Ist-Stunden</div><div class="val">${hoursToHHMM(period.workH)}</div>
+            <div class="lab">S. Vormonat</div><div class="val ${pPeriod.diff>=0?"good":"bad"}">${signedHHMM(pPeriod.diff)}</div>
+            <div class="lab">Saldo</div><div class="val ${(pPeriod.diff + period.diff)>=0?"good":"bad"}">${signedHHMM(pPeriod.diff + period.diff)}</div>
           </div>
         </div>
-        <div class="monthKpis">
-          ${kpiBox("Soll-Stunden", hoursToHHMM(period.sollH), "neutral")}
-          ${kpiBox("Ist-Stunden", hoursToHHMM(period.workH), "neutral")}
-          ${kpiBox("S. Vormonat", signedHHMM(pPeriod.diff), pPeriod.diff>=0 ? "pos":"neg")}
-          ${kpiBox("Saldo", signedHHMM(period.diff), period.diff>=0 ? "pos":"neg")}
-          ${kpiBox("Saldo heute", signedHHMM(saldoHeute), saldoHeute>=0 ? "pos":"neg")}
-        </div>
       </div>
-    `;
+    `;box.innerHTML = "";
+    // v18 header controls
+    setTimeout(()=>{
+      const b1=$("btnPrevMonth"), b2=$("btnNextMonth");
+      if(b1) b1.onclick = ()=>{ stepTimesheetMonth(-1); };
+      if(b2) b2.onclick = ()=>{ stepTimesheetMonth(1); };
+      const s2=$("btnOpenSettings2");
+      if(s2) s2.onclick = ()=> showView("settings");
+    },0);
 
-    box.innerHTML = "";
     const days = enumerateDaysRange(from, to);
     for(const iso of days){
       const shortWd = weekdayName(iso); // existing helper (So/Mo/..)
@@ -2344,26 +2428,18 @@ function refreshDashboard(){
         right = `${hoursToHHMM(h)}`;
         meta = `${work.start} - ${work.end} • Pause ${Number(work.breakMin||0)} min`;
         chip = `<span class="chip">🛠️ Arbeit</span>`;
-        actions = `<div class="actions">
-          <button class="btnPrimary" data-act="edit" data-id="${work.id}">Edit</button>
-          <button data-act="abs" data-date="${iso}">Abwesenheit</button>
-        </div>`;
+        actions = "";
       }else if(abs){
         const label = abs==="urlaub" ? "Urlaub" : abs==="krank" ? "Krank" : abs==="holiday" ? "Feiertag" : "Sonst";
         right = isWeekendISO(iso) ? "" : "8:00";
         meta = isWeekendISO(iso) ? "Wochenende" : "Abwesenheit (8h automatisch)";
         const icon = abs==="urlaub" ? "🏖️" : abs==="krank" ? "🤒" : abs==="holiday" ? "🎉" : "📌";
         chip = `<span class="chip">${icon} ${label}</span>`;
-        actions = `<div class="actions">
-          <button data-act="abs" data-date="${iso}">Ändern</button>
-        </div>`;
+        actions = "";
       }else{
         meta = isWeekendISO(iso) ? "Wochenende" : "Kein Eintrag";
         chip = isWeekendISO(iso) ? `<span class="chip">🗓️ Wochenende</span>` : `<span class="chip">➕ offen</span>`;
-        actions = `<div class="actions">
-          <button class="btnPrimary" data-act="work" data-date="${iso}">Arbeit</button>
-          <button data-act="abs" data-date="${iso}">Abwesenheit</button>
-        </div>`;
+        actions = "";
       }
 
       const card = document.createElement("div");
@@ -2438,23 +2514,6 @@ function refreshDashboard(){
           hideRangeModal();
         }
       };
-    }
-
-    
-    // v17 One Screen: Settings open/close
-    if($("btnOpenSettings")) $("btnOpenSettings").onclick = () => showView("settings");
-    if($("btnCloseSettings")) $("btnCloseSettings").onclick = () => { $("view_settings").classList.add("hide"); };
-
-    // v17 Single: name change
-    if($("singleName")){
-      $("singleName").addEventListener("input", () => {
-        const name = $("singleName").value.trim() || "Ich";
-        state.people = state.people && state.people.length ? state.people : [{id:"me", name:"Ich"}];
-        state.people[0].name = name;
-        saveState();
-        refreshPeopleSelectors();
-        refreshAll();
-      });
     }
 
     showView("dashboard");
@@ -2813,6 +2872,8 @@ function refreshTimesheet(){
     };
   }
   function refreshSettings(){
+    if($('cfgSingleName')) $('cfgSingleName').value = state.singleName || (state.people?.[0]?.name||'Zaunteam');
+
     // cfg
     $("cfgWorkdays").value = String(state.cfg.workdaysPerWeek ?? 5);
     $("cfgWeeklyHours").value = String(state.cfg.weeklyHours ?? 40);
@@ -4039,6 +4100,14 @@ ${monthSheet}
     alert("CSV uebernommen: " + importedYears.sort().join(", "));
   }
 
+  // cfgSingleName listener
+  if($("cfgSingleName")) $("cfgSingleName").addEventListener("input", ()=>{
+    state.singleName = $("cfgSingleName").value.trim() || "Zaunteam";
+    if(state.people && state.people[0]) state.people[0].name = state.singleName;
+    saveState();
+    refreshTimesheet();
+  });
+
   $("btnResetAll").onclick = () => {
     if(confirm("Wirklich ALLES loeschen?")){
       localStorage.removeItem(APP_KEY);
@@ -4110,11 +4179,15 @@ ${monthSheet}
 
   if($("btnBackFromExport")) $("btnBackFromExport").onclick = () => { const ui=getUi(); showView(ui.lastNonExportView || "dashboard"); };
 
-  $("btnExportNow").onclick = () => { const ui=getUi(); ui.lastNonExportView = ui.lastView || "dashboard"; saveState(); showView("export"); };
+  if($("btnExportNow_old")) $("btnExportNow_old").onclick = () => { const ui=getUi(); ui.lastNonExportView = ui.lastView || "dashboard"; saveState(); showView("export"); };
   $("btnGoTimesheet").onclick = () => showView("timesheet");
   $("btnGoOverview").onclick = () => showView("overview");
 
   function refreshAll(resetUI=false){
+    // v18 preserve scroll
+    const scroller = $('dayCards');
+    const prevScroll = scroller ? scroller.scrollTop : 0;
+
     if(resetUI){
       renderTabs();
       refreshPeopleSelectors();
@@ -4127,6 +4200,8 @@ ${monthSheet}
     refreshCsvImportTargets();
     refreshCarryUI();
     refreshSettings();
+    setTimeout(()=>{ const sc=$('dayCards'); if(sc) sc.scrollTop = prevScroll; }, 0);
+
     refreshExport();
     $("chipLastExport").textContent = state.ui.lastExportISO ? state.ui.lastExportISO.replace("T"," ").slice(0,16) : "-";
   }
@@ -4138,7 +4213,14 @@ ${monthSheet}
     renderTabs();
     refreshPeopleSelectors();
     // v14: go to last view (no tab-jumps)
-    showView((getUi().lastView && TAB_DEF.some(t=>t[0]===getUi().lastView)) ? getUi().lastView : 'dashboard');
+    
+    // v18 header buttons
+    if($("btnExportNow")) $("btnExportNow").onclick = () => showView("export");
+    if($("btnOpenSettings")) $("btnOpenSettings").onclick = () => showView("settings");
+    if($("btnToday")) $("btnToday").onclick = () => openDayEditor(todayISO(), getActivePersonId());
+    if($("btnYear")) $("btnYear").onclick = () => openYearModal();
+    if($("btnYearClose")) $("btnYearClose").onclick = () => closeYearModal();
+showView((getUi().lastView && TAB_DEF.some(t=>t[0]===getUi().lastView)) ? getUi().lastView : 'dashboard');
 
     $("inDate").value = todayISO();
     $("fromDate").value = startOfWeekISO(todayISO());
@@ -4189,6 +4271,71 @@ ${monthSheet}
     };
     $("btnCsvImportApply").onclick = () => applyCsvImport();
     // Carry wiring
+    bindCarryHandlers();
+    refreshCarryUI();
+
+
+    showView("dashboard");
+    refreshAll();
+  }catch(e){
+    console.error(e);
+    setStatus("Fehler", false);
+    alert("Fehler beim Start: " + e.message);
+  }
+
+  function openYearModal(){
+    const personId = getActivePersonId();
+    const year = Number($("tsYear").value || todayISO().slice(0,4));
+    const from = startOfYearISO(year);
+    const to = endOfYearISO(year);
+    const yPeriod = computePeriod(personId, from, to);
+    const carry = getCarry(personId, year).hours || 0;
+    const saldo = yPeriod.diff + carry;
+
+    const name = (state.singleName || state.people?.[0]?.name || "Zaunteam");
+    $("yearModalSub").textContent = `${name} • ${year}`;
+
+    const k = $("yearKpis");
+    if(k){
+      const box = (lab, val, cls) => `<div style="border:1px solid rgba(17,24,39,.10);border-radius:14px;padding:10px 12px;background:linear-gradient(180deg, rgba(17,24,39,.03), #fff);">
+        <div style="color:rgba(17,24,39,.60);font-weight:800;font-size:12px;">${escapeHtml(lab)}</div>
+        <div style="font-weight:1000;font-size:20px;margin-top:6px;" class="${cls||""} mono">${escapeHtml(val)}</div>
+      </div>`;
+      k.innerHTML =
+        box("Soll (Jahr)", hoursToHHMM(yPeriod.sollH), "") +
+        box("Ist (Jahr)", hoursToHHMM(yPeriod.workH), "") +
+        box("Carry (Start)", signedHHMM(carry), carry>=0? "":"") +
+        box("Saldo (Jahr)", signedHHMM(saldo), saldo>=0? "":"");
+    }
+
+    const wrap = $("yearMonths");
+    if(wrap){
+      wrap.innerHTML = "";
+      for(let m=1;m<=12;m++){
+        const mm = String(m).padStart(2,"0");
+        const monthISO = `${year}-${mm}-01`;
+        const mf = startOfMonthISO(monthISO);
+        const mt = endOfMonthISO(monthISO);
+        const p = computePeriod(personId, mf, mt);
+        const row = document.createElement("div");
+        row.style.display="grid";
+        row.style.gridTemplateColumns="1fr auto auto";
+        row.style.gap="10px";
+        row.style.padding="10px 12px";
+        row.style.borderBottom="1px solid rgba(17,24,39,.08)";
+        row.innerHTML = `<div style="font-weight:900">${monthNameLong(mm)}</div>
+          <div class="mono" style="font-weight:900; text-align:right;">${hoursToHHMM(p.workH)}</div>
+          <div class="mono" style="font-weight:900; text-align:right; color:${p.diff>=0?'var(--good)':'var(--bad)'}">${signedHHMM(p.diff)}</div>`;
+        row.onclick = ()=>{ $("tsMonth").value = mm; saveUiPrefs({tsMonth:mm}); refreshTimesheet(); closeYearModal(); };
+        wrap.appendChild(row);
+      }
+    }
+    showModal("yearModal");
+  }
+  function closeYearModal(){ closeModal("yearModal"); }
+
+})();
+ Carry wiring
     bindCarryHandlers();
     refreshCarryUI();
 
