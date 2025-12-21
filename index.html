@@ -12,7 +12,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#111111" />
-  <title>Arbeitszeit-Tracker (Team) v9 - Offline</title>
+  <title>Arbeitszeit-Tracker (Team) v10 - Offline</title>
   <style>
     :root{
       --bg:#f3f4f6;
@@ -208,6 +208,44 @@ button:hover{filter:brightness(0.98);}
 .badgeUrlaub{background:#dcfce7; border-color:#86efac; color:#14532d;}
 .badgeKrank{background:#fee2e2; border-color:#fecaca; color:#7f1d1d;}
 .note{background:var(--chip); border:1px dashed var(--border); border-radius:14px; padding:10px 12px; color:var(--muted);}
+
+
+/* --- v10 Layout (mobile-first) --- */
+header{position:sticky;top:0;z-index:50;backdrop-filter:saturate(180%) blur(12px);background:rgba(248,250,252,.92);border-bottom:1px solid var(--border);}
+header .toprow{padding:10px 12px;}
+header .seg{padding:10px 12px;}
+
+#tabs{position:fixed;left:0;right:0;bottom:0;z-index:60;background:rgba(248,250,252,.96);border-top:1px solid var(--border);padding:10px 12px;display:flex;gap:8px;justify-content:space-between;}
+#tabs button{flex:1;border-radius:14px;padding:10px 10px;font-weight:700}
+main{padding-bottom:84px;} /* room for bottom tabs */
+
+.footerBar{display:none !important;}
+
+.kpiGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}
+@media (max-width: 860px){
+  .kpiGrid{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+
+/* Timesheet: card list on mobile */
+.dayCards{display:none;}
+@media (max-width: 860px){
+  table{font-size:13px}
+  .tableWrap{display:none;}
+  .dayCards{display:block;}
+  .dayCard{border:1px solid var(--border);background:var(--card);border-radius:16px;padding:12px;margin:10px 0;box-shadow:var(--shadow);}
+  .dayTop{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .dayDate{font-weight:800}
+  .dayMeta{color:var(--muted);font-size:12px;margin-top:2px}
+  .dayHours{font-weight:900;font-size:18px}
+  .dayHours.negative{color:var(--danger);}
+  .dayHours.positive{color:var(--accent2);}
+  .pill{display:inline-block;padding:4px 8px;border-radius:999px;border:1px solid var(--border);background:var(--chip);font-size:12px;color:var(--muted);margin-top:6px}
+  .rowCompact{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+  .btnRow{display:flex;gap:8px;margin-top:10px}
+}
+
+/* Hide any accidental inline code/text blocks if a browser renders script as text (safety) */
+script{display:none !important;}
 </style>
 </head>
 
@@ -217,7 +255,7 @@ button:hover{filter:brightness(0.98);}
     <div class="brand">
       <div class="logo" aria-hidden="true"></div>
       <div class="title">
-        <b>Arbeitszeit-Tracker (Team) v9</b>
+        <b>Arbeitszeit-Tracker (Team) v10</b>
         <span>Offline - lokal gespeichert - Urlaub/Krank/Feiertage reduzieren Soll - Export als Excel/CSV</span>
       </div>
     </div>
@@ -411,7 +449,9 @@ button:hover{filter:brightness(0.98);}
   <section id="view_timesheet" class="view hide">
     <div class="card">
       <h2>Eintraege (editieren/loeschen)</h2>
-      <div class="sub">Alle Eintraege pro Jahr - mit Suche</div>
+      <div class="sub">Monats-Ansicht (mobil) + Tabelle (Desktop). Klick auf einen Tag zum Bearbeiten.</div>
+      <div id="monthHeader" class="note" style="margin-top:10px"></div>
+      <div id="dayCards" class="dayCards"></div>
 
       <div class="row">
         <div class="field" style="min-width:260px">
@@ -421,6 +461,15 @@ button:hover{filter:brightness(0.98);}
         <div class="field">
           <label>Filter (Jahr)</label>
           <select id="selYear"></select>
+        </div>
+        <div class="field">
+          <label>Monat</label>
+          <select id="selMonth2">
+            <option value="">Alle</option>
+            <option value="01">Jan</option><option value="02">Feb</option><option value="03">Mrz</option><option value="04">Apr</option>
+            <option value="05">Mai</option><option value="06">Jun</option><option value="07">Jul</option><option value="08">Aug</option>
+            <option value="09">Sep</option><option value="10">Okt</option><option value="11">Nov</option><option value="12">Dez</option>
+          </select>
         </div>
         <div class="field">
           <label>Suche (Notiz)</label>
@@ -444,7 +493,7 @@ button:hover{filter:brightness(0.98);}
             </tr>
           </thead>
           <tbody id="tblEntries"></tbody>
-        </table>
+        </table></div>
       </div>
 
       <div class="hr"></div>
@@ -1016,6 +1065,27 @@ button:hover{filter:brightness(0.98);}
       d.setDate(d.getDate()+1);
     }
   }
+  function listDaysInRange(fromISO, toISO){
+    const out=[];
+    const d0 = new Date(fromISO+"T00:00:00");
+    const d1 = new Date(toISO+"T00:00:00");
+    for(let d=new Date(d0); d<=d1; d.setDate(d.getDate()+1)){
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,"0");
+      const da = String(d.getDate()).padStart(2,"0");
+      out.push(`${y}-${m}-${da}`);
+    }
+    return out;
+  }
+  function weekdayName(iso){
+    const d = new Date(iso+"T00:00:00");
+    return ["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
+  }
+  function fmtDateDE(iso){
+    // dd.mm.yyyy
+    return `${iso.slice(8,10)}.${iso.slice(5,7)}.${iso.slice(0,4)}`;
+  }
+
 
   function defaultState(){
     return {
@@ -1905,6 +1975,8 @@ button:hover{filter:brightness(0.98);}
     if(!selYear.value) selYear.value = String(new Date().getFullYear());
 
     const year = Number(selYear.value);
+    const monthSel = ($("selMonth2") ? $("selMonth2").value : "");
+    if($("selMonth2") && !$("selMonth2").value){ /* keep */ }
     const search = ($("searchNote").value || "").toLowerCase();
 
     const tbody = $("tblEntries");
@@ -1912,8 +1984,14 @@ button:hover{filter:brightness(0.98);}
 
     const list = entriesFor(personId)
       .filter(e=>{
-        const y1 = (e.type==="work" ? Number(e.date?.slice(0,4)) : Number(e.from?.slice(0,4)));
-        return y1 === year;
+        const d0 = (e.type==="work" ? e.date : e.from) || "";
+        const y1 = Number(d0.slice(0,4));
+        if(y1 !== year) return false;
+        if(monthSel){
+          const m1 = d0.slice(5,7);
+          if(m1 !== monthSel) return false;
+        }
+        return true;
       })
       .filter(e=>{
         if(!search) return true;
@@ -1985,6 +2063,7 @@ button:hover{filter:brightness(0.98);}
 
     $("searchNote").oninput = () => refreshTimesheet();
     $("selYear").onchange = () => refreshTimesheet();
+    $("selMonth2").onchange = () => refreshTimesheet();
   }
 
   function refreshVacation(){
@@ -2925,19 +3004,7 @@ ${monthSheet}
   <p class="muted" style="margin-top:12px;font-size:12px">
     Soll-Logik: Arbeitstage minus Urlaub/Krank/Sonst/Feiertage (jeweils nur an Arbeitstagen).
   </p>
-
-<script>
-  (function(){
-    if(!('serviceWorker' in navigator)) return;
-    window.addEventListener('load', function(){
-      navigator.serviceWorker.register('./sw.js').catch(function(err){
-        console.warn('SW register failed', err);
-      });
-    });
-  })();
-</script>
-
-</body></html>`;
+<\/body><\/html>`;
 
     const w = window.open("", "_blank");
     if(!w){ alert("Popup blockiert. Bitte Popups erlauben."); return; }
@@ -2981,6 +3048,36 @@ ${monthSheet}
     }
     saveState();
     refreshAll();
+  }
+
+  function openAddWorkWithDate(dateISO){
+    // prefills quick form in dashboard
+    showView("dashboard");
+    $("inDate").value = dateISO;
+    $("inStart").focus();
+  }
+  function openAddAbsWithDate(dateISO){
+    showView("dashboard");
+    // open absence modal prefilling from/to to date
+    $("absFrom").value = dateISO;
+    $("absTo").value = dateISO;
+    showModal("absenceModal");
+  }
+  function openEditByDate(personId, dateISO){
+    // if there is a work entry on that day, edit the most recent one; else open add absence
+    const list = entriesFor(personId).filter(e=>{
+      const d = (e.type==="work" ? e.date : e.from);
+      return d === dateISO;
+    }).sort((a,b)=>{
+      const da = (a.type==="work"?a.date:a.from) || "";
+      const db = (b.type==="work"?b.date:b.from) || "";
+      return (db||"").localeCompare(da||"");
+    });
+    if(list.length){
+      openEdit(list[0].id);
+    }else{
+      openAddWorkWithDate(dateISO);
+    }
   }
 
   function addWorkEntry(){
@@ -3520,5 +3617,17 @@ ${monthSheet}
   }
 })();
 </script>
+
+<script>
+  (function(){
+    if(!('serviceWorker' in navigator)) return;
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('./sw.js').catch(function(err){
+        console.warn('SW register failed', err);
+      });
+    });
+  })();
+</script>
+
 </body>
 </html>

@@ -1,17 +1,19 @@
-Arbeitszeit Tracker PWA (iOS/Android) – GitHub Pages
+Arbeitszeit Tracker PWA v4 (iOS/Android)
 
-Mehrjahres-Import:
-- Einstellungen -> CSV Import
-- Du kannst mehrere CSV Dateien gleichzeitig auswählen (z.B. 2024 + 2025)
-- Dann auf "CSV übernehmen" -> beide Jahre sind drin.
+Wichtig: Installieren als App geht nur über HTTPS (z.B. GitHub Pages).
 
 GitHub Pages:
-1) Neues GitHub Repo
-2) Dateien aus diesem ZIP ins Repo-ROOT hochladen
+1) Neues Repo
+2) Diese Dateien ins Repo-ROOT:
+   - index.html
+   - sw.js
+   - manifest.webmanifest
+   - icon-192.png
+   - icon-512.png
 3) Settings -> Pages -> main / root
 
-iPhone Safari:
-- Teilen -> Zum Home-Bildschirm
+iPhone Safari: Teilen -> Zum Home-Bildschirm
+Android Chrome: Menü (⋮) -> App installieren
 
-Android Chrome:
-- Menü (⋮) -> App installieren / Zum Startbildschirm
+Tipp (Monats-Layout):
+- Eintraege Tab -> Jahr wählen + Monat auswählen -> du bekommst die Tagesliste wie im App-Beispiel.
