@@ -1,11 +1,9 @@
-Arbeitszeit Tracker PWA – GitHub Pages (v14 Simple)
+Arbeitszeit Tracker PWA – GitHub Pages (v15)
 
-Änderungen:
-- Tabs stark reduziert: nur Tracker + Einstellungen
-- Tracker zeigt Eingabe + Einträge in EINER Ansicht (kein Verwirren)
-- Zeitraum/Monat bleiben gespeichert (springen nicht zurück)
-- Kein nerviges Name-Modal beim Start
-- Export hat Zurück-Button
+Fix/Upgrade:
+- CSV Import übernimmt auch Urlaub/Krank/Feiertag-Tage (nicht nur Stunden)
+- Quick-KPIs zeigen Urlaub Rest/Genommen + Krank + Feiertage
+- Auto-Carry: Januar "S. Vormonat" wird als Anfangssaldo gesetzt (falls leer)
 
 Install:
 - Dateien ins GitHub Repo ROOT

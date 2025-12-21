@@ -12,7 +12,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#111111" />
-  <title>Arbeitszeit-Tracker (Team) v14 - Offline</title>
+  <title>Arbeitszeit-Tracker (Team) v15 - Offline</title>
   <style>
     :root{
       --bg:#f3f4f6;
@@ -313,7 +313,7 @@ script{display:none !important;}
     <div class="brand">
       <div class="logo" aria-hidden="true"></div>
       <div class="title">
-        <b>Arbeitszeit-Tracker (Team) v14</b>
+        <b>Arbeitszeit-Tracker (Team) v15</b>
         <span>Offline - lokal gespeichert - Urlaub/Krank/Feiertage reduzieren Soll - Export als Excel/CSV</span>
       </div>
     </div>
@@ -1997,7 +1997,10 @@ function saveState(){
     const pm = computePeriod(personId, mFrom, mTo);
     const py = computePeriod(personId, yFrom, yTo);
 
-    const restVac = Math.max(0, (getCarry(personId, Number(today.slice(0,4))).vacation||0) + (state.cfg.vacationDaysPerYear||30) - (getAggregate(personId, Number(today.slice(0,4)))?.totals?.urlaubDays ?? py.abs.vacation ?? 0));
+    const year = Number(today.slice(0,4));
+    const baseVac = Number(state.cfg?.vacationDaysPerYear || 30) + (getCarry(personId, year).vacation || 0);
+    const usedVac = Number(py.abs?.vacation || 0);
+    const restVac = Math.max(0, baseVac - usedVac);
 
     function card(title, val, cls){
       return `<div class="totCard ${cls}"><div class="lbl">${escapeHtml(title)}</div><div class="val mono">${escapeHtml(val)}</div></div>`;
@@ -2016,7 +2019,9 @@ function saveState(){
       card("Jahr Ist", hoursToHHMM(py.workH), "neutral"),
       diffCard("Jahr +/-", py.diff),
       card("Urlaub Rest", `${Number(restVac).toFixed(1)} d`, "small neutral"),
-      card("Urlaub Genommen", `${Number(py.abs.vacation||0)} d`, "small neutral")
+      card("Urlaub Genommen", `${Number(py.abs.vacation||0)} d`, "small neutral"),
+      card("Krank", `${Number(py.abs.sick||0)} d`, "small neutral"),
+      card("Feiertage", `${Number(py.holidayWorkdays||0)} d`, "small neutral")
     ].join("");
   }
 
@@ -3882,6 +3887,15 @@ ${monthSheet}
         months: parsed.months,
         totals: parsed.totals
       };
+      // v15: auto-carry from CSV (S. Vormonat im Januar) -> setzt Anfangssaldo, falls noch nicht gepflegt
+      try{
+        const jan = parsed.months?.["01"];
+        const carryNow = getCarry(personId, year);
+        if(jan && isFinite(jan.prevSaldo) && (carryNow.hours===0)){
+          setCarry(personId, year, Number(jan.prevSaldo||0), carryNow.vacation||0);
+        }
+      }catch(e){}
+
       importedYears.push(year);
 
       // focus to last imported

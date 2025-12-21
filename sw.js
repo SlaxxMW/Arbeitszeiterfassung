@@ -1,5 +1,5 @@
 /* Arbeitszeit-Tracker PWA Service Worker */
-const CACHE_NAME = 'arbeitszeit-tracker-v8';
+const CACHE_NAME = 'arbeitszeit-tracker-v9';
 const ASSETS = [
   './',
   './index.html',
