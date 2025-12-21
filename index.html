@@ -12,7 +12,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#111111" />
-  <title>Arbeitszeit-Tracker (Team) v10 - Offline</title>
+  <title>Arbeitszeit-Tracker (Team) v13 - Offline</title>
   <style>
     :root{
       --bg:#f3f4f6;
@@ -246,6 +246,64 @@ main{padding-bottom:84px;} /* room for bottom tabs */
 
 /* Hide any accidental inline code/text blocks if a browser renders script as text (safety) */
 script{display:none !important;}
+
+
+/* v11 UI clarity */
+.totalsStrip{
+  display:grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap:10px;
+  margin: 10px 0 14px;
+}
+@media (max-width: 700px){
+  .totalsStrip{ grid-template-columns: repeat(2, minmax(140px, 1fr)); }
+}
+.totCard{
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:10px 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.75));
+}
+.totCard .lbl{ font-size:12px; color:var(--muted); }
+.totCard .val{ font-size:16px; font-weight:800; margin-top:4px; }
+.totCard.ok{ border-color: rgba(22,163,74,0.35); }
+.totCard.ok .val{ color: var(--accent2); }
+.totCard.bad{ border-color: rgba(220,38,38,0.35); }
+.totCard.bad .val{ color: var(--danger); }
+.totCard.neutral .val{ color: var(--text); }
+.totCard.small .val{ font-size:14px; font-weight:700; }
+
+
+/* v12: Monats-Layout + Zeitraum-Modal */
+.modalCard{background:var(--card); border:1px solid var(--border); border-radius:18px; padding:14px; box-shadow:var(--shadow); max-width:780px; width:min(780px, calc(100vw - 26px));}
+.modalHead{display:flex; align-items:flex-start; justify-content:space-between; gap:12px;}
+.modalTitle{font-size:18px; font-weight:900;}
+.modalSub{color:var(--muted); font-size:13px; margin-top:2px;}
+.iconBtn{border:1px solid var(--border); background:var(--chip); width:38px; height:38px; border-radius:12px;}
+.iconBtn:hover{filter:brightness(0.98);}
+
+.monthWrap{margin-top:10px;}
+.monthKpis{display:grid; grid-template-columns:repeat(5, minmax(120px, 1fr)); gap:10px; margin-top:10px;}
+@media (max-width: 900px){ .monthKpis{grid-template-columns:repeat(2, minmax(140px, 1fr));} }
+.kpi{border:1px solid var(--border); border-radius:14px; padding:10px 12px; background:rgba(255,255,255,0.92);}
+.kpi .k{font-size:12px; color:var(--muted);}
+.kpi .v{font-weight:900; font-size:16px; margin-top:4px;}
+.kpi.pos .v{color:var(--accent2);}
+.kpi.neg .v{color:var(--danger);}
+
+.dayCards{margin-top:12px;}
+.dayCard{
+  border:1px solid var(--border); border-radius:16px; padding:12px;
+  background:rgba(255,255,255,0.92); margin-top:10px;
+}
+.dayCard .dTop{display:flex; justify-content:space-between; gap:10px; align-items:baseline; flex-wrap:wrap;}
+.dayCard .dTitle{font-weight:900;}
+.dayCard .dMeta{color:var(--muted); font-size:12px;}
+.dayCard .dRight{font-weight:900;}
+.dayCard .chip{display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; border:1px solid var(--border); background:var(--chip); font-size:12px;}
+.dayCard .actions{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;}
+.dayCard .actions button{padding:8px 10px;}
+.dayCard:hover{border-color: rgba(37,99,235,0.35);}
 </style>
 </head>
 
@@ -255,7 +313,7 @@ script{display:none !important;}
     <div class="brand">
       <div class="logo" aria-hidden="true"></div>
       <div class="title">
-        <b>Arbeitszeit-Tracker (Team) v10</b>
+        <b>Arbeitszeit-Tracker (Team) v13</b>
         <span>Offline - lokal gespeichert - Urlaub/Krank/Feiertage reduzieren Soll - Export als Excel/CSV</span>
       </div>
     </div>
@@ -321,6 +379,7 @@ script{display:none !important;}
 
       <div class="card">
         <h2>Schnell-Eingabe</h2>
+      <div id="quickTotals" class="totalsStrip"></div>
         <div class="sub">Arbeit eintragen (auch rueckwirkend) - oder Abwesenheit</div>
 
         <div class="row">
@@ -352,6 +411,7 @@ script{display:none !important;}
         <div class="row">
           <button class="btnPrimary" id="btnAddEntry">Eintrag speichern</button>
           <button id="btnAddAbsence">Urlaub/Krank/Feiertag</button>
+            <button id="btnAbsenceRange">Zeitraum setzen</button>
         </div>
 
         <div class="hr"></div>
@@ -448,7 +508,10 @@ script{display:none !important;}
   <!-- Timesheet -->
   <section id="view_timesheet" class="view hide">
     <div class="card">
-      <h2>Eintraege (editieren/loeschen)</h2>
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap">
+  <h2 style="margin:0">Eintraege (editieren/loeschen)</h2>
+  <button id="btnAbsenceRangeTS">Zeitraum setzen</button>
+</div>
       <div class="sub">Monats-Ansicht (mobil) + Tabelle (Desktop). Klick auf einen Tag zum Bearbeiten.</div>
       <div id="monthHeader" class="note" style="margin-top:10px"></div>
       <div id="dayCards" class="dayCards"></div>
@@ -1893,9 +1956,47 @@ script{display:none !important;}
     refreshAll();
   }
 
-  function refreshDashboard(){
+  
+  function renderQuickTotals(personId){
+    const box = $("quickTotals");
+    if(!box) return;
+
+    const today = todayISO();
+    const wFrom = startOfWeekISO(today), wTo = endOfWeekISO(today);
+    const mFrom = startOfMonthISO(today), mTo = endOfMonthISO(today);
+    const yFrom = startOfYearISO(Number(today.slice(0,4))), yTo = endOfYearISO(Number(today.slice(0,4)));
+
+    const pw = computePeriod(personId, wFrom, wTo);
+    const pm = computePeriod(personId, mFrom, mTo);
+    const py = computePeriod(personId, yFrom, yTo);
+
+    const restVac = Math.max(0, (getCarry(personId, Number(today.slice(0,4))).vacation||0) + (state.cfg.vacationDaysPerYear||30) - (getAggregate(personId, Number(today.slice(0,4)))?.totals?.urlaubDays ?? py.abs.vacation ?? 0));
+
+    function card(title, val, cls){
+      return `<div class="totCard ${cls}"><div class="lbl">${escapeHtml(title)}</div><div class="val mono">${escapeHtml(val)}</div></div>`;
+    }
+    function diffCard(title, diff){
+      const cls = diff>=0 ? "ok" : "bad";
+      const val = (diff>=0?"+":"") + hoursToHHMM(diff);
+      return card(title, val, cls);
+    }
+
+    box.innerHTML = [
+      card("Woche Ist", hoursToHHMM(pw.workH), "neutral"),
+      diffCard("Woche +/-", pw.diff),
+      card("Monat Ist", hoursToHHMM(pm.workH), "neutral"),
+      diffCard("Monat +/-", pm.diff),
+      card("Jahr Ist", hoursToHHMM(py.workH), "neutral"),
+      diffCard("Jahr +/-", py.diff),
+      card("Urlaub Rest", `${Number(restVac).toFixed(1)} d`, "small neutral"),
+      card("Urlaub Genommen", `${Number(py.abs.vacation||0)} d`, "small neutral")
+    ].join("");
+  }
+
+function refreshDashboard(){
     const personId = $("selPerson").value || getActivePersonId();
     setActivePersonId(personId);
+    renderQuickTotals(personId);
 
     const scope = $("selScope").value;
     const nowISO = todayISO();
@@ -1959,12 +2060,267 @@ script{display:none !important;}
     $("inDate").value = $("inDate").value || nowISO;
   }
 
-  function refreshTimesheet(){
+  
+  // -----------------------------
+  // v12: Zeitraum-Modal & Monats-Cards
+  // -----------------------------
+  function showRangeModal(presetFrom, presetTo, presetType){
+    const m = $("rangeModal");
+    if(!m) return;
+    $("rangeFrom").value = presetFrom || todayISO();
+    $("rangeTo").value = presetTo || todayISO();
+    $("rangeType").value = presetType || "urlaub";
+    $("rangeNote").value = "";
+    m.classList.remove("hide");
+  }
+  function hideRangeModal(){
+    const m = $("rangeModal");
+    if(!m) return;
+    m.classList.add("hide");
+  }
+  function deleteAbsenceRange(from, to, type){
+    const personId = getActivePersonId();
+    if(!from || !to) return;
+    let nf = from <= to ? from : to;
+    let nt = from <= to ? to : from;
+    const t = type || "urlaub";
+    state.entries = state.entries.filter(e=>{
+      if(e.personId !== personId) return true;
+      if(e.type === "work") return true;
+      if(e.type !== t) return true;
+      const ef = e.from, et = e.to;
+      const overlap = (ef <= nt) && (et >= nf);
+      return !overlap;
+    });
+    saveState();
+    refreshAll();
+  }
+
+  function monthNameLong(mm){
+    const names = {"01":"Januar","02":"Februar","03":"März","04":"April","05":"Mai","06":"Juni","07":"Juli","08":"August","09":"September","10":"Oktober","11":"November","12":"Dezember"};
+    return names[String(mm).padStart(2,"0")] || String(mm);
+  }
+  function enumerateDaysRange(fromISO, toISO){
+    const out = [];
+    let d = new Date(fromISO+"T00:00:00");
+    const end = new Date(toISO+"T00:00:00");
+    while(d <= end){
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,"0");
+      const da = String(d.getDate()).padStart(2,"0");
+      out.push(`${y}-${m}-${da}`);
+      d.setDate(d.getDate()+1);
+    }
+    return out;
+  }
+  function isWeekendISO(iso){
+    const d = new Date(iso+"T00:00:00");
+    return d.getDay()===0 || d.getDay()===6;
+  }
+  function hasHoliday(iso){
+    return (holidayNameForDay(iso) || "").trim() !== "";
+  }
+  function getAbsenceTypeOnDate(personId, iso){
+    // precedence: manual ranges first
+    for(const e of state.entries){
+      if(e.personId !== personId) continue;
+      if(e.type === "work") continue;
+      if(e.from <= iso && iso <= e.to) return e.type;
+    }
+    if(hasHoliday(iso)) return "holiday";
+    return "";
+  }
+  function getWorkEntryOnDate(personId, iso){
+    return state.entries.find(e=>e.personId===personId && e.type==="work" && e.date===iso) || null;
+  }
+  function kpiBox(label, value, cls){
+    return `<div class="kpi ${cls}"><div class="k">${escapeHtml(label)}</div><div class="v mono">${escapeHtml(value)}</div></div>`;
+  }
+  function signedHHMM(h){
+    const sign = h>=0 ? "+" : "-";
+    return sign + hoursToHHMM(Math.abs(h));
+  }
+
+  function renderTimesheetMonthCards(personId, year, month){
+    const box = $("dayCards");
+    const head = $("monthHeader");
+    if(!box || !head) return;
+
+    const monthISO = `${year}-${month}-01`;
+    const from = startOfMonthISO(monthISO);
+    const to = endOfMonthISO(monthISO);
+
+    const period = computePeriod(personId, from, to);
+
+    // Vormonat
+    const prevDate = new Date(Number(year), Number(month)-2, 1);
+    const pISO = `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,"0")}-01`;
+    const pFrom = startOfMonthISO(pISO);
+    const pTo = endOfMonthISO(pISO);
+    const pPeriod = computePeriod(personId, pFrom, pTo);
+
+    // Saldo heute (YTD + Carry)
+    const today = todayISO();
+    const y = Number(today.slice(0,4));
+    const yPeriod = computePeriod(personId, startOfYearISO(y), today);
+    const carry = getCarry(personId, y).hours || 0;
+    const saldoHeute = yPeriod.diff + carry;
+
+    head.innerHTML = `
+      <div class="monthWrap">
+        <div class="entryHeader">
+          <div>
+            <div class="title">${monthNameLong(month)} ${year}</div>
+            <div class="sub">Soll/Ist/Saldo für den Monat • Tage sind anklickbar/editierbar</div>
+          </div>
+        </div>
+        <div class="monthKpis">
+          ${kpiBox("Soll-Stunden", hoursToHHMM(period.sollH), "neutral")}
+          ${kpiBox("Ist-Stunden", hoursToHHMM(period.workH), "neutral")}
+          ${kpiBox("S. Vormonat", signedHHMM(pPeriod.diff), pPeriod.diff>=0 ? "pos":"neg")}
+          ${kpiBox("Saldo", signedHHMM(period.diff), period.diff>=0 ? "pos":"neg")}
+          ${kpiBox("Saldo heute", signedHHMM(saldoHeute), saldoHeute>=0 ? "pos":"neg")}
+        </div>
+      </div>
+    `;
+
+    box.innerHTML = "";
+    const days = enumerateDaysRange(from, to);
+    for(const iso of days){
+      const shortWd = weekdayName(iso); // existing helper (So/Mo/..)
+      const d = new Date(iso+"T00:00:00");
+      const title = `${shortWd}, ${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}.${d.getFullYear()}`;
+
+      const work = getWorkEntryOnDate(personId, iso);
+      const abs = getAbsenceTypeOnDate(personId, iso);
+
+      let right = "";
+      let meta = "";
+      let chip = "";
+      let actions = "";
+
+      if(work){
+        const h = calcWorkHours(work);
+        right = `${hoursToHHMM(h)}`;
+        meta = `${work.start} - ${work.end} • Pause ${Number(work.breakMin||0)} min`;
+        chip = `<span class="chip">🛠️ Arbeit</span>`;
+        actions = `<div class="actions">
+          <button class="btnPrimary" data-act="edit" data-id="${work.id}">Edit</button>
+          <button data-act="abs" data-date="${iso}">Abwesenheit</button>
+        </div>`;
+      }else if(abs){
+        const label = abs==="urlaub" ? "Urlaub" : abs==="krank" ? "Krank" : abs==="holiday" ? "Feiertag" : "Sonst";
+        right = isWeekendISO(iso) ? "" : "8:00";
+        meta = isWeekendISO(iso) ? "Wochenende" : "Abwesenheit (8h automatisch)";
+        const icon = abs==="urlaub" ? "🏖️" : abs==="krank" ? "🤒" : abs==="holiday" ? "🎉" : "📌";
+        chip = `<span class="chip">${icon} ${label}</span>`;
+        actions = `<div class="actions">
+          <button data-act="abs" data-date="${iso}">Ändern</button>
+        </div>`;
+      }else{
+        meta = isWeekendISO(iso) ? "Wochenende" : "Kein Eintrag";
+        chip = isWeekendISO(iso) ? `<span class="chip">🗓️ Wochenende</span>` : `<span class="chip">➕ offen</span>`;
+        actions = `<div class="actions">
+          <button class="btnPrimary" data-act="work" data-date="${iso}">Arbeit</button>
+          <button data-act="abs" data-date="${iso}">Abwesenheit</button>
+        </div>`;
+      }
+
+      const card = document.createElement("div");
+      card.className = "dayCard";
+      card.innerHTML = `
+        <div class="dTop">
+          <div>
+            <div class="dTitle">${escapeHtml(title)}</div>
+            <div class="dMeta">${escapeHtml(meta)}</div>
+          </div>
+          <div class="dRight mono">${escapeHtml(right)}</div>
+        </div>
+        <div style="margin-top:8px">${chip}</div>
+        ${actions}
+      `;
+      box.appendChild(card);
+    }
+
+    // Delegate actions
+    box.querySelectorAll("button[data-act]").forEach(btn=>{
+      btn.onclick = () => {
+        const act = btn.getAttribute("data-act");
+        const date = btn.getAttribute("data-date");
+        const id = btn.getAttribute("data-id");
+        if(act==="edit" && id){
+          const e = state.entries.find(x=>x.id===id);
+          if(e) openEditDialog(e);
+          return;
+        }
+        if(act==="work" && date){
+      
+    // v12: Zeitraum setzen Buttons
+    if($("btnAbsenceRange")){
+      $("btnAbsenceRange").onclick = () => {
+        const d = $("inDate").value || todayISO();
+        showRangeModal(d, d, "urlaub");
+      };
+    }
+    if($("btnAbsenceRangeTS")){
+      $("btnAbsenceRangeTS").onclick = () => {
+        const year = Number($("selYear").value || new Date().getFullYear());
+        const month = ($("selMonth2").value || String(new Date().getMonth()+1).padStart(2,"0"));
+        const from = startOfMonthISO(`${year}-${month}-01`);
+        const to = endOfMonthISO(`${year}-${month}-01`);
+        showRangeModal(from, to, "urlaub");
+      };
+    }
+
+    // v12: Modal actions
+    if($("btnRangeClose")) $("btnRangeClose").onclick = hideRangeModal;
+    if($("btnRangeCancel")) $("btnRangeCancel").onclick = hideRangeModal;
+    if($("rangeModal")){
+      $("rangeModal").addEventListener("click", (ev)=>{ if(ev.target && ev.target.id==="rangeModal") hideRangeModal(); });
+    }
+    if($("btnRangeApply")){
+      $("btnRangeApply").onclick = () => {
+        const f = $("rangeFrom").value;
+        const t = $("rangeTo").value;
+        const type = $("rangeType").value;
+        const note = $("rangeNote").value;
+        addAbsence(f, t, type, note);
+        hideRangeModal();
+      };
+    }
+    if($("btnRangeDelete")){
+      $("btnRangeDelete").onclick = () => {
+        const f = $("rangeFrom").value;
+        const t = $("rangeTo").value;
+        const type = $("rangeType").value;
+        if(confirm("Bereiche dieses Typs im Zeitraum wirklich löschen?")){
+          deleteAbsenceRange(f, t, type);
+          hideRangeModal();
+        }
+      };
+    }
+
+    showView("dashboard");
+          $("inDate").value = date;
+          $("inStart").focus();
+          return;
+        }
+        if(act==="abs" && date){
+          showRangeModal(date, date, "urlaub");
+          return;
+        }
+      };
+    });
+  }
+
+function refreshTimesheet(){
     const personId = $("selPerson2").value || getActivePersonId();
     setActivePersonId(personId);
+    renderQuickTotals(personId);
 
     const years = getYearsFor(personId);
     const selYear = $("selYear");
+    const prevYearTS = selYear.value;
     selYear.innerHTML = "";
     years.forEach(y=>{
       const o = document.createElement("option");
@@ -1972,11 +2328,15 @@ script{display:none !important;}
       o.textContent = String(y);
       selYear.appendChild(o);
     });
+    if(prevYearTS && years.includes(Number(prevYearTS))) selYear.value = String(prevYearTS);
     if(!selYear.value) selYear.value = String(new Date().getFullYear());
 
     const year = Number(selYear.value);
     const monthSel = ($("selMonth2") ? $("selMonth2").value : "");
     if($("selMonth2") && !$("selMonth2").value){ /* keep */ }
+    const month = (monthSel || String(new Date().getMonth()+1).padStart(2,"0"));
+    // Monats-Cards/KPIs (wie App)
+    if($("monthHeader") && $("dayCards")){ try{ renderTimesheetMonthCards(personId, year, month); }catch(e){} }
     const search = ($("searchNote").value || "").toLowerCase();
 
     const tbody = $("tblEntries");
@@ -2058,17 +2418,21 @@ script{display:none !important;}
     // quick sums (today-based)
     const now = todayISO();
     $("sumYear").textContent = hoursToHHMM(sumWorkHours(personId, startOfYearISO(year), endOfYearISO(year)));
-    $("sumMonth").textContent = hoursToHHMM(sumWorkHours(personId, startOfMonthISO(now), endOfMonthISO(now)));
+    $("sumMonth").textContent = hoursToHHMM(sumWorkHours(personId, startOfMonthISO(`${year}-${month}-01`), endOfMonthISO(`${year}-${month}-01`)));
     $("sumWeek").textContent = hoursToHHMM(sumWorkHours(personId, startOfWeekISO(now), endOfWeekISO(now)));
 
-    $("searchNote").oninput = () => refreshTimesheet();
-    $("selYear").onchange = () => refreshTimesheet();
-    $("selMonth2").onchange = () => refreshTimesheet();
+    if(!$("searchNote").dataset.tsBound){
+      $("searchNote").oninput = () => refreshTimesheet();
+      $("selYear").onchange = () => refreshTimesheet();
+      $("selMonth2").onchange = () => refreshTimesheet();
+      $("searchNote").dataset.tsBound = "1";
+    }
   }
 
   function refreshVacation(){
     const personId = $("selPerson3").value || getActivePersonId();
     setActivePersonId(personId);
+    renderQuickTotals(personId);
 
     const years = getYearsFor(personId);
     const selYear2 = $("selYear2");
@@ -2463,10 +2827,12 @@ script{display:none !important;}
   function refreshOverview(){
     const personId = $("selPersonO").value || getActivePersonId();
     setActivePersonId(personId);
+    renderQuickTotals(personId);
 
     // year/month pickers
     const years = getYearsFor(personId);
     const pickYear = $("ovPickYear");
+    const prevYearOV = pickYear.value;
     pickYear.innerHTML = "";
     years.forEach(y=>{
       const o = document.createElement("option");
@@ -2474,9 +2840,11 @@ script{display:none !important;}
       o.textContent = String(y);
       pickYear.appendChild(o);
     });
+    if(prevYearOV && years.includes(Number(prevYearOV))) pickYear.value = String(prevYearOV);
     if(!pickYear.value) pickYear.value = String(new Date().getFullYear());
 
     const ovPickMonth = $("ovPickMonth");
+    const prevMonthOV = ovPickMonth.value;
     ovPickMonth.innerHTML = "";
     const monthNames = ["01 Jan","02 Feb","03 Maer","04 Apr","05 Mai","06 Jun","07 Jul","08 Aug","09 Sep","10 Okt","11 Nov","12 Dez"];
     monthNames.forEach((label, idx)=>{
@@ -2486,6 +2854,7 @@ script{display:none !important;}
       o.textContent = label;
       ovPickMonth.appendChild(o);
     });
+    if(prevMonthOV) ovPickMonth.value = String(prevMonthOV).padStart(2,"0");
     const now = new Date();
     if(!ovPickMonth.value) ovPickMonth.value = String(now.getMonth()+1).padStart(2,"0");
 
@@ -2644,6 +3013,7 @@ script{display:none !important;}
   function refreshExport(){
     const personId = $("selPerson4").value || getActivePersonId();
     setActivePersonId(personId);
+    renderQuickTotals(personId);
 
     const years = getYearsFor(personId);
     const selYear3 = $("selYear3");
@@ -3105,21 +3475,52 @@ ${monthSheet}
     refreshAll();
   }
 
+  
   function addAbsence(from, to, type, note){
     const personId = getActivePersonId();
     if(!from || !to){
       alert("Bitte Von und Bis Datum setzen.");
       return;
     }
+    // normalize order
+    let nf = from <= to ? from : to;
+    let nt = from <= to ? to : from;
+
+    const t = (type || "urlaub");
+
+    // merge with existing overlapping/touching absences of same type (prevents duplicates)
+    const keep = [];
+    const overlaps = [];
+    for(const e of state.entries){
+      if(e.personId !== personId) { keep.push(e); continue; }
+      if(e.type === "work") { keep.push(e); continue; }
+      if(e.type !== t) { keep.push(e); continue; }
+      const ef = e.from, et = e.to;
+      // overlap or touch (YYYY-MM-DD compares lexicographically)
+      // touch means et >= (nf - 1 day) and ef <= (nt + 1 day)
+      const efOk = (ef <= nt);
+      const etOk = (et >= nf);
+      if(efOk && etOk){
+        overlaps.push(e);
+        if(ef < nf) nf = ef;
+        if(et > nt) nt = et;
+      }else{
+        keep.push(e);
+      }
+    }
+    state.entries = keep;
+
     const entry = {
       id: crypto.randomUUID(),
       personId,
-      type: type || "urlaub",
-      from,
-      to,
+      type: t,
+      from: nf,
+      to: nt,
       note: (note||"").trim(),
       createdAt: new Date().toISOString()
     };
+
+    // If there was an exact same range already (rare), we already removed it above via overlap.
     state.entries.push(entry);
     saveState();
     refreshAll();
@@ -3617,6 +4018,59 @@ ${monthSheet}
   }
 })();
 </script>
+
+  <!-- Absence Range Modal -->
+  <div id="rangeModal" class="modal hide" role="dialog" aria-modal="true" aria-labelledby="rangeTitle">
+    <div class="modalCard">
+      <div class="modalHead">
+        <div>
+          <div class="modalTitle" id="rangeTitle">Abwesenheit als Zeitraum</div>
+          <div class="modalSub">Von–Bis setzen (wird automatisch zusammengeführt, keine Duplikate).</div>
+        </div>
+        <button class="iconBtn" id="btnRangeClose" title="Schließen">✕</button>
+      </div>
+
+      <div class="row" style="margin-top:10px">
+        <div class="field" style="min-width:160px">
+          <label>Von</label>
+          <input type="date" id="rangeFrom">
+        </div>
+        <div class="field" style="min-width:160px">
+          <label>Bis</label>
+          <input type="date" id="rangeTo">
+        </div>
+        <div class="field" style="min-width:180px">
+          <label>Typ</label>
+          <select id="rangeType">
+            <option value="urlaub">Urlaub</option>
+            <option value="krank">Krank</option>
+            <option value="holiday">Feiertag</option>
+            <option value="other">Sonst</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field" style="flex:1">
+          <label>Notiz (optional)</label>
+          <input id="rangeNote" placeholder="z.B. Urlaub Italien, Krankmeldung, ...">
+        </div>
+      </div>
+
+      <div class="row" style="justify-content:space-between; gap:10px; flex-wrap:wrap">
+        <button class="btnDanger" id="btnRangeDelete">Bereich löschen</button>
+        <div style="display:flex; gap:10px">
+          <button id="btnRangeCancel">Abbrechen</button>
+          <button class="btnPrimary" id="btnRangeApply">Speichern</button>
+        </div>
+      </div>
+
+      <div class="tiny" style="margin-top:10px">
+        Hinweis: Urlaub/Krank/Feiertag zählen automatisch als <b>8h</b> (Soll/Tag) an Arbeitstagen.
+      </div>
+    </div>
+  </div>
+
 
 <script>
   (function(){

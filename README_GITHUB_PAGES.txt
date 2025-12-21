@@ -1,19 +1,8 @@
-Arbeitszeit Tracker PWA v4 (iOS/Android)
+Arbeitszeit Tracker PWA – GitHub Pages (v13)
 
-Wichtig: Installieren als App geht nur über HTTPS (z.B. GitHub Pages).
+Fix:
+- Start-Fehler "month/monat is not defined" behoben (Monat wird jetzt korrekt gesetzt)
 
-GitHub Pages:
-1) Neues Repo
-2) Diese Dateien ins Repo-ROOT:
-   - index.html
-   - sw.js
-   - manifest.webmanifest
-   - icon-192.png
-   - icon-512.png
-3) Settings -> Pages -> main / root
-
-iPhone Safari: Teilen -> Zum Home-Bildschirm
-Android Chrome: Menü (⋮) -> App installieren
-
-Tipp (Monats-Layout):
-- Eintraege Tab -> Jahr wählen + Monat auswählen -> du bekommst die Tagesliste wie im App-Beispiel.
+Install:
+- Dateien ins GitHub Repo ROOT
+- Settings -> Pages -> main / root
