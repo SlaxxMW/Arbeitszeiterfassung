@@ -17,8 +17,6 @@
   const $statSaldo = els('statSaldo');
   const $statVac = els('statVac');
   const $statSick = els('statSick');
-  const $statYearDiff = els('statYearDiff');
-  const $statYearSaldo = els('statYearSaldo');
 
   const $settingsModal = els('settingsModal');
   const $importModal = els('importModal');
@@ -39,6 +37,7 @@
   const $setAssumption = els('setAssumption'); // Mariä Himmelfahrt
   const $setAugsburg = els('setAugsburg');
   const $setVacationPerYear = els('setVacationPerYear');
+  const $setUseYearSummaryMonthly = els('setUseYearSummaryMonthly');
   const $setYearStartSaldo = els('setYearStartSaldo');
   const $holidayPreview = els('holidayPreview');
   const $updateInfo = els('updateInfo');
@@ -120,8 +119,9 @@
     const assumption = await AZDB.getSetting('assumption', true); // Mariä Himmelfahrt
     const augsburg = await AZDB.getSetting('augsburg', false);
     const vacationPerYear = await AZDB.getSetting('vacationPerYear', 30);
+    const useYearSummaryMonthly = await AZDB.getSetting('useYearSummaryMonthly', true);
 
-    settings = { company, person, state, assumption: !!assumption, augsburg: !!augsburg, vacationPerYear: parseInt(vacationPerYear,10) || 30 };
+    settings = { company, person, state, assumption: !!assumption, augsburg: !!augsburg, vacationPerYear: parseInt(vacationPerYear,10) || 30, useYearSummaryMonthly: !!useYearSummaryMonthly };
   }
 
   async function saveSettings(){
@@ -131,6 +131,7 @@
     settings.assumption = !!$setAssumption.checked;
     settings.augsburg = !!$setAugsburg.checked;
     settings.vacationPerYear = parseInt($setVacationPerYear.value,10) || 30;
+    settings.useYearSummaryMonthly = $setUseYearSummaryMonthly ? !!$setUseYearSummaryMonthly.checked : true;
 
     await AZDB.setSetting('company', settings.company);
     await AZDB.setSetting('person', settings.person);
@@ -138,6 +139,7 @@
     await AZDB.setSetting('assumption', settings.assumption);
     await AZDB.setSetting('augsburg', settings.augsburg);
     await AZDB.setSetting('vacationPerYear', settings.vacationPerYear);
+    await AZDB.setSetting('useYearSummaryMonthly', settings.useYearSummaryMonthly);
 
     // year start saldo (current year)
     const year = current.year;
@@ -174,6 +176,7 @@
     $setAssumption.checked = settings.assumption;
     $setAugsburg.checked = settings.augsburg;
     $setVacationPerYear.value = settings.vacationPerYear;
+    if($setUseYearSummaryMonthly) $setUseYearSummaryMonthly.checked = !!settings.useYearSummaryMonthly;
 
     const ys = await getYearStartSaldo(current.year);
     $setYearStartSaldo.value = ys;
@@ -286,8 +289,7 @@
     const map = new Map(stored.map(r=>[r.date, r]));
 
     // compute carry within year
-    const carry = await calcCarryToMonth(current.year, current.month);
-    const startSaldo = carry;
+    let startSaldo = await calcCarryToMonth(current.year, current.month);
     let sumSoll=0, sumIst=0, sumDiff=0;
 
     // build list (alle Tage + Inline-Editor im Listeneintrag)
@@ -490,8 +492,24 @@
       $dayList.appendChild(card);
     }
 
-    // update month stats
-    const saldo = startSaldo + sumDiff;
+    // update month stats (optional: aus importierter Jahres-CSV übernehmen)
+    let saldo = startSaldo + sumDiff;
+
+    if(settings.useYearSummaryMonthly){
+      const ys = await getYearSummary(current.year);
+      const im = findImportedMonth(ys, current.month);
+      if(im){
+        const iSoll = Number(im.soll||0);
+        const iIst  = Number(im.ist||0);
+        const iDiff = (im.diff!=null) ? Number(im.diff||0) : (iIst - iSoll);
+        const iSaldo = (im.saldo!=null) ? Number(im.saldo||0) : (deriveImportedCarry(ys, current.month) + iDiff);
+        const iCarry = deriveImportedCarry(ys, current.month);
+
+        sumSoll = iSoll; sumIst = iIst; sumDiff = iDiff;
+        startSaldo = iCarry; saldo = iSaldo;
+      }
+    }
+
     $statSoll.textContent = formatHours(sumSoll);
     $statIst.textContent = formatHours(sumIst);
     $statCarry.textContent = formatHours(startSaldo);
@@ -507,21 +525,6 @@
     const yc = await calcYearCounters(current.year);
     $statVac.textContent = yc.vacUsed + '/' + settings.vacationPerYear;
     $statSick.textContent = yc.sickDays + ' Tg';
-
-    // Jahr (aktuell bis inkl. aktuellem Monat): im Header nur Diff + Saldo
-    try{
-      const ytd = await calcYearToMonth(current.year, current.month);
-      const yStart = await getYearStartSaldo(current.year);
-      const ySaldo = (Number(yStart)||0) + (Number(ytd.diff)||0);
-      if($statYearDiff){
-        $statYearDiff.textContent = formatHours(ytd.diff||0);
-        setGoodBad($statYearDiff, ytd.diff||0);
-      }
-      if($statYearSaldo){
-        $statYearSaldo.textContent = formatHours(ySaldo||0);
-        setGoodBad($statYearSaldo, ySaldo||0);
-      }
-    }catch(e){ /* ignore */ }
   }
 
   function setGoodBad(el, v){
@@ -542,7 +545,71 @@
     }
   }
 
-  async function calcCarryToMonth(year, month){
+  
+  // ---- Jahres-CSV Monatswerte (Override) ----
+  const MONTH_NAME_MAP = {
+    'januar':1,'jan':1,
+    'februar':2,'feb':2,
+    'märz':3,'maerz':3,'mrz':3,'mar':3,
+    'april':4,'apr':4,
+    'mai':5,
+    'juni':6,'jun':6,
+    'juli':7,'jul':7,
+    'august':8,'aug':8,
+    'september':9,'sep':9,'sept':9,
+    'oktober':10,'okt':10,'oct':10,
+    'november':11,'nov':11,
+    'dezember':12,'dez':12,'dec':12
+  };
+
+  function monthIndexFromAny(m){
+    if(!m) return null;
+    if(typeof m.month === 'number' && m.month>=1 && m.month<=12) return m.month;
+    if(typeof m.month === 'string'){
+      const s = m.month.trim().toLowerCase();
+      if(MONTH_NAME_MAP[s]) return MONTH_NAME_MAP[s];
+      const n = parseInt(s,10);
+      if(Number.isFinite(n) && n>=1 && n<=12) return n;
+    }
+    if(typeof m.name === 'string'){
+      const s = m.name.trim().toLowerCase();
+      if(MONTH_NAME_MAP[s]) return MONTH_NAME_MAP[s];
+      const s2 = s.replace('ä','ae').replace('ö','oe').replace('ü','ue');
+      if(MONTH_NAME_MAP[s2]) return MONTH_NAME_MAP[s2];
+    }
+    return null;
+  }
+
+  async function getYearSummary(year){
+    const raw = await AZDB.getSetting('yearSummary_' + year, null);
+    if(!raw) return null;
+    try{ return JSON.parse(raw); }catch(e){ return null; }
+  }
+
+  function findImportedMonth(ys, month){
+    if(!ys || !Array.isArray(ys.months)) return null;
+    // try by numeric month
+    for(const m of ys.months){
+      const mi = monthIndexFromAny(m);
+      if(mi === month) return m;
+    }
+    // fallback: if array is 12 items in order
+    if(ys.months.length >= month) return ys.months[month-1];
+    return null;
+  }
+
+  function deriveImportedCarry(ys, month){
+    if(!ys || !Array.isArray(ys.months)) return 0;
+    const m = findImportedMonth(ys, month);
+    if(m && typeof m.carry === 'number') return m.carry;
+    // in CSV: Jan carry = yearStartSaldo, others carry = previous month saldo
+    if(month === 1) return Number(ys.yearStartSaldo || 0) || 0;
+    const prev = findImportedMonth(ys, month-1);
+    if(prev && prev.saldo != null) return Number(prev.saldo || 0) || 0;
+    return 0;
+  }
+
+async function calcCarryToMonth(year, month){
     const startSaldoYear = await getYearStartSaldo(year);
     if(month <= 1) return startSaldoYear;
     // sum diffs of months 1..month-1
@@ -679,6 +746,41 @@
     let ySoll=0, yIst=0, yDiff=0;
 
     for(let m=1; m<=12; m++){
+      // Wenn vorhanden: Monatswerte aus importierter Jahres-CSV benutzen
+      if(settings.useYearSummaryMonthly){
+        const ysImp = await getYearSummary(year);
+        const im = findImportedMonth(ysImp, m);
+        if(im){
+          const carry = deriveImportedCarry(ysImp, m);
+          const soll = Number(im.soll||0);
+          const ist  = Number(im.ist||0);
+          const diff = (im.diff!=null)?Number(im.diff||0):(ist-soll);
+          const saldo = (im.saldo!=null)?Number(im.saldo||0):(carry+diff);
+          // render card using imported values
+          const card = document.createElement('div');
+          card.className = 'year-card';
+          card.innerHTML = `
+        <div>
+          <div class="mname">${MONTHS[m-1]}</div>
+          <div class="small">S. Vormonat: ${AZExport.formatNum(carry)} h</div>
+        </div>
+        <div class="vals">
+          <div>Soll: <b>${AZExport.formatNum(soll)} h</b></div>
+          <div>Ist: <b>${AZExport.formatNum(ist)} h</b></div>
+          <div>Diff: <b class="${diff>0.005?'good':diff<-0.005?'bad':''}">${AZExport.formatNum(diff)} h</b></div>
+          <div>Saldo: <b class="${saldo>0.005?'good':saldo<-0.005?'bad':''}">${AZExport.formatNum(saldo)} h</b></div>
+        </div>
+      `;
+          card.addEventListener('click', ()=>{
+            current.month = m;
+            openDateKey = null;
+            renderMonth();
+          });
+          $yearCards.appendChild(card);
+          continue;
+        }
+      }
+
       const {soll, ist, diff} = await calcMonthDiff(year, m);
       ySoll += soll; yIst += ist; yDiff += diff;
 
@@ -961,6 +1063,19 @@
       return;
     }
 
+    if(parsed.kind === 'month_summary'){
+      const s = parsed.summary;
+      if(!s){ toast((parsed.errors && parsed.errors[0]) || "CSV nicht erkannt"); return; }
+      pendingImport = { kind:'month_summary', summary: s, fileName: file.name };
+      const mName = (s.month && MONTHS[s.month-1]) ? MONTHS[s.month-1] : (s.monthRow && s.monthRow.name) || '—';
+      $importMeta.textContent = `Monats-CSV: ${mName} ${s.year || '—'} | ${s.person || '—'} | ${s.company || '—'} | Datei: ${file.name}`;
+      $importPreview.textContent = buildImportPreviewSummary(s);
+      $importMode.innerHTML = `<option value="apply">Übernehmen</option>`;
+      $importMode.value = 'apply';
+      $importModal.classList.remove('hidden');
+      return;
+    }
+
     // daily
     const rows = parsed.rows || [];
     const errors = parsed.errors || [];
@@ -995,6 +1110,26 @@
 
   function buildImportPreviewSummary(s){
     const lines = [];
+
+    // Monats-CSV Vorschau
+    if(s && s.kind === 'month_summary'){
+      const mName = (s.month && MONTHS[s.month-1]) ? MONTHS[s.month-1] : (s.monthRow && s.monthRow.name) || '—';
+      const r = s.monthRow || {};
+      lines.push(`Stundenübersicht eines Monats`);
+      lines.push(`Name: ${s.person || '—'}`);
+      lines.push(`Firma: ${s.company || '—'}`);
+      lines.push(`Monat: ${mName} ${s.year || '—'}`);
+      if(s.month === 1){
+        lines.push(`Startsaldo (aus S. Vormonat): ${AZExport.formatNum(s.yearStartSaldo || 0)} h`);
+      }
+      lines.push("");
+      lines.push(`Werte (Soll/Ist/Diff/Saldo):`);
+      lines.push(`${mName}  Soll ${AZExport.formatNum(r.soll||0)}  Ist ${AZExport.formatNum(r.ist||0)}  Diff ${AZExport.formatNum(r.diff||0)}  Saldo ${AZExport.formatNum(r.saldo||0)}`);
+      lines.push("");
+      lines.push("Hinweis: Diese Monats-CSV füllt keine Tageszeiten. Sie wird als Monatswert im Jahres-Import gespeichert und in Soll/Ist/Saldo angezeigt.");
+      return lines.join("\n");
+    }
+
     lines.push(`Stundenübersicht eines Jahres`);
     lines.push(`Name: ${s.person || '—'}`);
     lines.push(`Firma: ${s.company || '—'}`);
@@ -1041,6 +1176,8 @@
       await AZDB.setSetting(getYearStartSaldoKey(y), Number.isFinite(ys) ? ys : 0);
 
       // komplette Jahresübersicht für Anzeige/Fallback speichern
+      try{ await AZDB.setSetting('useYearSummaryMonthly', true); settings.useYearSummaryMonthly = true; }catch(e){ /* ignore */ }
+
       try{
         await AZDB.setSetting('yearSummary_' + y, JSON.stringify(s));
       }catch(e){ /* ignore */ }
@@ -1057,6 +1194,73 @@
       pendingImport = null;
       $importModal.classList.add('hidden');
       toast(`Jahres-CSV übernommen (${y})`);
+      await loadSettings();
+      await renderMonth();
+      return;
+    }
+
+    // 1b) Monats-CSV (Monatswerte -> wird in yearSummary_<year> gemerged)
+    if(pendingImport.kind === 'month_summary'){
+      const s = pendingImport.summary;
+      const y = parseInt(String(s.year||''), 10);
+      const m = parseInt(String(s.month||''), 10);
+      if(!Number.isFinite(y) || y < APP_MIN_YEAR){
+        toast("Jahr ungültig (min. 2025)");
+        return;
+      }
+      if(!Number.isFinite(m) || m < 1 || m > 12){
+        toast("Monat ungültig");
+        return;
+      }
+
+      let ys = null;
+      try{
+        const raw = await AZDB.getSetting('yearSummary_' + y, null);
+        if(raw) ys = JSON.parse(raw);
+      }catch(e){ ys = null; }
+
+      if(!ys || typeof ys !== 'object'){
+        ys = { kind:'year_summary', year:y, person:s.person||'', company:s.company||'', yearStartSaldo:0, months:[], total:null, counts:null };
+      }
+      if(!ys.person && s.person) ys.person = s.person;
+      if(!ys.company && s.company) ys.company = s.company;
+
+      const mr = s.monthRow || {};
+      const entry = {
+        month: m,
+        name: mr.name || (MONTHS[m-1] || String(m)),
+        soll: Number(mr.soll||0),
+        ist: Number(mr.ist||0),
+        diff: Number(mr.diff||0),
+        carry: Number(mr.carry||0),
+        paidOvertime: Number(mr.paidOvertime||0),
+        saldo: Number(mr.saldo||0)
+      };
+      if(!Array.isArray(ys.months)) ys.months = [];
+      const idx = ys.months.findIndex(x => Number(x.month) === m);
+      if(idx >= 0) ys.months[idx] = {...ys.months[idx], ...entry};
+      else ys.months.push(entry);
+      ys.months = ys.months
+        .filter(x=>Number.isFinite(Number(x.month)) && Number(x.month)>=1 && Number(x.month)<=12)
+        .sort((a,b)=>Number(a.month)-Number(b.month));
+
+      if(m === 1){
+        const ysSaldo = Number(s.yearStartSaldo || entry.carry || 0);
+        ys.yearStartSaldo = Number.isFinite(ysSaldo) ? ysSaldo : 0;
+        await AZDB.setSetting(getYearStartSaldoKey(y), ys.yearStartSaldo);
+      }
+
+      try{ await AZDB.setSetting('useYearSummaryMonthly', true); settings.useYearSummaryMonthly = true; }catch(e){ /* ignore */ }
+      try{ await AZDB.setSetting('yearSummary_' + y, JSON.stringify(ys)); }catch(e){ /* ignore */ }
+
+      const curPerson = await AZDB.getSetting('person', '');
+      const curCompany = await AZDB.getSetting('company', 'Zaunteam');
+      if(!curPerson && ys.person){ await AZDB.setSetting('person', ys.person); }
+      if((!curCompany || curCompany === 'Zaunteam') && ys.company){ await AZDB.setSetting('company', ys.company); }
+
+      pendingImport = null;
+      $importModal.classList.add('hidden');
+      toast(`Monats-CSV übernommen (${MONTHS[m-1]} ${y})`);
       await loadSettings();
       await renderMonth();
       return;

@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.5.3 (20251222-143730)
+- CSV Import: Monats-CSV wird erkannt und als Monatswert in die Jahres-CSV-Struktur gemerged (Soll/Ist/Diff/Saldo sichtbar)
+- CSV Import: Daily-CSV erkennt jetzt auch Spaltennamen wie "Tag" / "Arbeitstag" als Datum
+- CSV Parser: robuster bei Monats-Headern (Monat/Soll/Ist/Vormonat)
+
 ## v1.4.0 (20251222-002827)
 - Jahres-Saldo reset pro Jahr (Startsaldo pro Jahr in Einstellungen)
 - Jahre < 2025 werden automatisch bereinigt

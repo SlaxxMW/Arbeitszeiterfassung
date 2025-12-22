@@ -224,11 +224,133 @@
     };
   }
 
+  function extractYearFromLines(lines){
+    for(const l of lines){
+      const m = String(l||'').match(/\b(20\d{2})\b/);
+      if(m){
+        const y = parseInt(m[1],10);
+        if(Number.isFinite(y) && y >= 2000 && y <= 2100) return y;
+      }
+    }
+    return null;
+  }
+
+  function extractMonthFromLines(lines){
+    const monthMap = {
+      "januar":1,"februar":2,"maerz":3,"märz":3,"april":4,"mai":5,"juni":6,"juli":7,
+      "august":8,"september":9,"oktober":10,"november":11,"dezember":12
+    };
+    for(const l of lines){
+      const n = normalizeHeader(l);
+      for(const k of Object.keys(monthMap)){
+        if(n.includes(k)) return monthMap[k];
+      }
+    }
+    return null;
+  }
+
+  // Monatsübersicht: speichert Monatswerte kompatibel zum bestehenden year_summary Format
+  function parseMonthSummary(lines, delim){
+    let person = null;
+    let company = null;
+    let year = null;
+    let month = null;
+
+    // Fall A: "Stundenübersicht eines Monats ...;2025;Firma"
+    const first = splitCsvLine(lines[0], delim);
+    if(/^Stundenübersicht eines Monats/i.test(first[0]||'')){
+      const rawName = first[0] || "";
+      person = rawName.replace(/^Stundenübersicht eines Monats/i,'').trim() || null;
+      const y = parseInt((first[1]||"").trim(),10);
+      year = Number.isFinite(y) ? y : null;
+      company = (first[2]||"").trim() || null;
+    }
+
+    // Header suchen: Monat;Soll-Stunden;Ist-Stunden;...;S. Vormonat
+    let headerIdx = -1;
+    for(let i=0;i<lines.length;i++){
+      const l = lines[i];
+      if(/^Monat/i.test(l) && /Soll[- ]Stunden/i.test(l) && /Ist[- ]Stunden/i.test(l) && /Vormonat/i.test(l)){
+        headerIdx = i;
+        break;
+      }
+    }
+    if(headerIdx < 0){
+      const l0 = lines[0] || '';
+      if(/^Monat/i.test(l0) && /Soll[- ]Stunden/i.test(l0) && /Ist[- ]Stunden/i.test(l0)) headerIdx = 0;
+    }
+    if(headerIdx < 0) return {errors:["Monats-CSV erkannt/vermuten, aber Monats-Header nicht gefunden."]};
+
+    const headerRaw = splitCsvLine(lines[headerIdx], delim);
+    const header = headerRaw.map(normalizeHeader);
+    const colMonth = header.findIndex(h=>h==='monat');
+    const colSoll = header.findIndex(h=>h.includes('soll-stunden'));
+    const colIst  = header.findIndex(h=>h.includes('ist-stunden'));
+    const colDiff = header.findIndex(h=>h==='differenz' || h.includes('differenz'));
+    const colCarry = header.findIndex(h=>h.includes('s. vormonat') || h.includes('s.vormonat') || h.includes('vormonat'));
+    const colPaidOT = header.findIndex(h=>h.includes('bezahlte') && h.includes('ueberstunden'));
+    const colSaldo = header.findIndex(h=>h==='saldo' || h.includes('saldo'));
+    if(colMonth<0 || colSoll<0 || colIst<0) return {errors:["Monat/Soll/Ist Spalten fehlen."]};
+
+    const monthMap = {
+      "januar":1,"februar":2,"maerz":3,"märz":3,"april":4,"mai":5,"juni":6,"juli":7,
+      "august":8,"september":9,"oktober":10,"november":11,"dezember":12
+    };
+
+    let monthRow = null;
+    for(let i=headerIdx+1;i<lines.length;i++){
+      const cols = splitCsvLine(lines[i], delim);
+      if(cols.length < 2) continue;
+      const mNameNorm = normalizeHeader(cols[colMonth]||"");
+      if(mNameNorm === 'total') continue;
+      const mnum = monthMap[mNameNorm] || null;
+      if(!mnum) continue;
+      monthRow = {
+        month: mnum,
+        name: cols[colMonth],
+        soll: parseGermanNumber(cols[colSoll]) ?? 0,
+        ist: parseGermanNumber(cols[colIst]) ?? 0,
+        diff: colDiff>=0 ? (parseGermanNumber(cols[colDiff]) ?? 0) : 0,
+        carry: colCarry>=0 ? (parseGermanNumber(cols[colCarry]) ?? 0) : 0,
+        paidOvertime: colPaidOT>=0 ? (parseGermanNumber(cols[colPaidOT]) ?? 0) : 0,
+        saldo: colSaldo>=0 ? (parseGermanNumber(cols[colSaldo]) ?? 0) : 0
+      };
+      break;
+    }
+    if(!monthRow) return {errors:["Keine gültige Monatszeile gefunden (z.B. 'Dezember')."]};
+
+    month = monthRow.month;
+    if(!year){
+      const y = extractYearFromLines(lines);
+      if(y) year = y;
+    }
+    if(!year) return {errors:["Jahr nicht gefunden (bitte CSV mit Jahr exportieren)."]};
+    if(!month){
+      const m = extractMonthFromLines(lines);
+      if(m) month = m;
+    }
+
+    const yearStartSaldo = (monthRow.month === 1 && monthRow.carry!=null) ? (monthRow.carry || 0) : 0;
+
+    return {
+      summary: {
+        kind:"month_summary",
+        year,
+        month,
+        person,
+        company,
+        monthRow,
+        yearStartSaldo
+      },
+      errors: []
+    };
+  }
+
   function parseDaily(lines, delim){
     const headers = splitCsvLine(lines[0], delim);
     const hnorm = headers.map(normalizeHeader);
     const idx = {
-      date: hnorm.findIndex(h => h === 'datum' || h === 'date'),
+      date: hnorm.findIndex(h => h === 'datum' || h === 'date' || h === 'tag' || h.includes('arbeitstag')),
       type: hnorm.findIndex(h => h === 'typ' || h === 'type' || h.includes('status')),
       start: hnorm.findIndex(h => h === 'start' || h.includes('beginn') || h.includes('von')),
       end: hnorm.findIndex(h => h === 'ende' || h.includes('bis')),
@@ -286,6 +408,16 @@
       const ys = parseYearSummary(lines, delim);
       if(ys.errors && ys.errors.length) return {kind:'year_summary', summary:null, errors:ys.errors};
       return {kind:'year_summary', summary:ys.summary, errors:[]};
+    }
+
+    // Detect "Monatsübersicht" CSV (Monatswerte)
+    if(
+      /^Stundenübersicht eines Monats/i.test(lines[0]) ||
+      (/^Monat/i.test(lines[0]) && /Soll[- ]Stunden/i.test(lines[0]) && /Ist[- ]Stunden/i.test(lines[0]) && /Vormonat/i.test(lines[0]))
+    ){
+      const ms = parseMonthSummary(lines, delim);
+      if(ms.errors && ms.errors.length) return {kind:'month_summary', summary:null, errors:ms.errors};
+      return {kind:'month_summary', summary:ms.summary, errors:[]};
     }
 
     // Otherwise treat as daily CSV
