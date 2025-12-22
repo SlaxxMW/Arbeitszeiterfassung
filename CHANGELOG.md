@@ -1,3 +1,7 @@
+
+## 1.6.2 (20251222-233459)
+- Fix: iPhone Settings toggles (checkboxes) visible/clickable again (Mariä Himmelfahrt, Augsburger Friedensfest, Jahres-CSV).
+
 ## 1.6.1 (2025-12-23)
 - Neu: Einstellungen zeigen "Letztes Backup" (Datum/Uhrzeit).
 - Neu: CSV Import Modal mit "Abbrechen" (zusätzlich zum ✕), zurück zur App ohne festzuhängen.
