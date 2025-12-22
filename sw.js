@@ -1,5 +1,5 @@
 /* sw.js - Service Worker for offline use + update banner support */
-const APP_VERSION = '1.5.7';
+const APP_VERSION = '1.5.8';
 const CACHE_NAME = `az-pwa-${APP_VERSION}`;
 
 const PRECACHE_URLS = [
@@ -49,7 +49,7 @@ self.addEventListener('fetch', (event) => {
   if(req.mode === 'navigate'){
     event.respondWith((async ()=>{
       const cache = await caches.open(CACHE_NAME);
-      const cached = await cache.match('./index.html', {ignoreSearch:true});
+      const cached = (await cache.match(req, {ignoreSearch:true})) || (await cache.match('./index.html', {ignoreSearch:true})) || (await cache.match('./', {ignoreSearch:true}));
       const fetchPromise = fetch(req).then(async (resp)=>{
         // update cache with fresh index
         if(resp && resp.ok) await cache.put('./index.html', resp.clone());

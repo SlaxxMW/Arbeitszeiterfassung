@@ -1533,11 +1533,16 @@ async function exportHandyMonth(){
         });
       });
 
-      navigator.serviceWorker.addEventListener('controllerchange', ()=>{
+            // offline-ready indicator
+      navigator.serviceWorker.ready.then(()=>{
+        try{ const el = document.getElementById('updateInfo'); if(el && !el.textContent.includes('Offline')) el.textContent = (el.textContent? (el.textContent+' • '):'') + 'Offline bereit'; }catch(_e){}
+      }).catch(()=>{});
+
+navigator.serviceWorker.addEventListener('controllerchange', ()=>{
         // new version active
         location.reload();
       });
-    }).catch(()=>{ /* ignore */ });
+    }).catch((err)=>{ console.warn('SW register failed', err); try{ toast('Offline/Cache nicht verfügbar (Service Worker Fehler)'); }catch(_e){} });
   }
 
   // ---- Navigation ----

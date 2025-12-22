@@ -1,3 +1,7 @@
+## 1.5.8 (2025-12-22)
+- Fix: Offline/PWA stabiler (Service Worker Navigation-Fallback + sichtbarer SW-Fehler)
+- Fix: Version-Querystrings entfernt (bessere Precache-Treffer)
+
 ## 1.5.7 (20251222-220213)
 - Export: Neuer "Handy Monat"-Report als HTML (WhatsApp-/Handy-lesbar: Karten-Ansicht + Tabelle + Summen).
 - Export: PDF Monat/Jahr zeigt jetzt pro Tag zusätzlich Ist/Soll/Diff.
