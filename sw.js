@@ -1,5 +1,5 @@
 /* sw.js - Service Worker for offline use + update banner support */
-const APP_VERSION = '1.5.8';
+const APP_VERSION = '1.5.9';
 const CACHE_NAME = `az-pwa-${APP_VERSION}`;
 
 const PRECACHE_URLS = [

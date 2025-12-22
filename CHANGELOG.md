@@ -1,3 +1,6 @@
+## 1.5.9 (2025-12-22)
+- Fix: iPhone Offline-Start zeigt keinen falschen "Service Worker nicht bereit"-Hinweis mehr (SW-Register wird offline nicht als Fehler gewertet).
+
 ## 1.5.8 (2025-12-22)
 - Fix: Offline/PWA stabiler (Service Worker Navigation-Fallback + sichtbarer SW-Fehler)
 - Fix: Version-Querystrings entfernt (bessere Precache-Treffer)

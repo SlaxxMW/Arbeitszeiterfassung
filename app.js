@@ -1494,7 +1494,11 @@ async function exportHandyMonth(){
         toast("Kein Update gefunden");
       }
     }catch(e){
-      $updateInfo.textContent = "Update-Check fehlgeschlagen (offline?)";
+      if(!navigator.onLine){
+        $updateInfo.textContent = "Offline: Update-Check nicht möglich";
+        return;
+      }
+      $updateInfo.textContent = "Update-Check fehlgeschlagen";
       toast("Update-Check fehlgeschlagen");
     }
   }
@@ -1519,6 +1523,20 @@ async function exportHandyMonth(){
 
   function registerSW(){
     if(!('serviceWorker' in navigator)) return;
+    // iOS (and sometimes other browsers) cannot (re)register a SW while fully offline
+    // unless a controller is already active. In that case the app may still run from
+    // cache, so don't show a scary error.
+    const hasController = !!navigator.serviceWorker.controller;
+    if(!navigator.onLine && !hasController){
+      try{
+        const el = document.getElementById('updateInfo');
+        if(el && !el.textContent.includes('Offline')){
+          el.textContent = (el.textContent ? (el.textContent+' • ') : '') + 'Offline (SW wird beim nächsten Online-Start aktiviert)';
+        }
+      }catch(_e){}
+      return;
+    }
+
     navigator.serviceWorker.register('./sw.js', {scope:'./'}).then((reg)=>{
       // listen for updates
       reg.addEventListener('updatefound', ()=>{
@@ -1542,7 +1560,12 @@ navigator.serviceWorker.addEventListener('controllerchange', ()=>{
         // new version active
         location.reload();
       });
-    }).catch((err)=>{ console.warn('SW register failed', err); try{ toast('Offline/Cache nicht verfügbar (Service Worker Fehler)'); }catch(_e){} });
+    }).catch((err)=>{
+      console.warn('SW register failed', err);
+      // If we're offline, this is expected on some platforms; don't alarm the user.
+      if(!navigator.onLine) return;
+      try{ toast('Offline/Cache nicht verfügbar (Service Worker Fehler)'); }catch(_e){}
+    });
   }
 
   // ---- Navigation ----
