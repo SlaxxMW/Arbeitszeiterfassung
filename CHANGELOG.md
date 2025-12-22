@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.5.9 (20251222-194948)
+- Fix: Start-Crash durch Cache-Mix beseitigt: keine ?v-Assets mehr, ServiceWorker cached ohne ignoreSearch und wird mit Cachebuster registriert
+- Export: Handy CSV (WhatsApp/iPhone Vorschau) + PDF zeigt Tagesstunden (Pause nur bei Arbeitszeit)
+
+## v1.5.8 (20251222-193102)
+- Fix: App startet wieder auch wenn noch eine ältere index.html im Cache liegt (Mobile-Export Buttons crashen nicht mehr beim Start)
+- Fix: ServiceWorker Cache-Version + Resource-Cachebusting aktualisiert (Updates werden zuverlässig geladen)
+
 ## v1.5.5 (20251222-172134)
 - Fix: "S. Vormonat"/Saldo explodiert nicht mehr im Dezember – Monate ohne echte Tagesdaten werden bei der Saldo-Kette ignoriert (kein -8h/Tag für Jan–Sep, wenn du erst ab Okt erfasst)
 - Fix: Jahresübersicht nutzt ebenfalls nur Monate mit echten Tagesdaten (keine riesigen negativen Werte für nicht erfasste Monate)

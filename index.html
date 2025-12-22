@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#A1C51D" />
   <title>Arbeitszeiterfassung</title>
-  <link rel="manifest" href="manifest.webmanifest?v=1.5.1" />
+  <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icons/icon-192.png" />
-  <link rel="stylesheet" href="styles.css?v=1.5.1" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header class="appbar">
@@ -129,6 +129,8 @@
           <div class="btn-row">
             <button class="btn btn-light" id="btnExportCsvMonth">CSV Monat</button>
             <button class="btn btn-light" id="btnExportCsvYear">CSV Jahr</button>
+            <button class="btn btn-light" id="btnExportCsvMonthMobile">Handy CSV Monat</button>
+            <button class="btn btn-light" id="btnExportCsvYearMobile">Handy CSV Jahr</button>
             <button class="btn btn-light" id="btnExportPdfMonth">PDF Monat</button>
             <button class="btn btn-light" id="btnExportPdfYear">PDF Jahr</button>
             <button class="btn btn-light" id="btnBackupJson">Backup JSON</button>
@@ -182,9 +184,9 @@
 
   <div class="toast hidden" id="toast"></div>
 
-  <script src="db.js?v=1.5.1"></script>
-  <script src="holidays.js?v=1.5.1"></script>
-  <script src="export.js?v=1.5.1"></script>
-  <script src="app.js?v=1.5.1"></script>
+  <script src="db.js"></script>
+  <script src="holidays.js"></script>
+  <script src="export.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
