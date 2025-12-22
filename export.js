@@ -1,261 +1,343 @@
-
-/* export.js - CSV / JSON / minimal PDF (offline, no external libs) */
+/* export.js - CSV/PDF/JSON import-export */
 (function(){
   'use strict';
 
   function pad2(n){ return String(n).padStart(2,'0'); }
-  function fmtHoursFromMin(min){
-    const h = (min/60);
-    return h.toFixed(2).replace('.', ',');
+  function formatHours(h){
+    const sign = h < 0 ? "-" : "";
+    const ah = Math.abs(h);
+    return sign + ah.toFixed(2).replace(".", ",") + " h";
   }
-  function fmtHoursWithSuffix(min){
-    return `${fmtHoursFromMin(min)} h`;
+  function formatNum(h){
+    const sign = h < 0 ? "-" : "";
+    const ah = Math.abs(h);
+    return sign + ah.toFixed(2).replace(".", ",");
   }
-  function escapeCsv(v){
-    if(v === null || v === undefined) return '';
-    const s = String(v);
-    if(/[;"\n\r]/.test(s)) return `"${s.replace(/"/g,'""')}"`;
-    return s;
+  function parseGermanNumber(s){
+    if(s==null) return null;
+    const t = String(s).trim();
+    if(!t) return null;
+    const cleaned = t.replace(/\./g,'').replace(',', '.');
+    const v = Number(cleaned);
+    return Number.isFinite(v) ? v : null;
+  }
+
+  function isISODate(s){ return /^\d{4}-\d{2}-\d{2}$/.test(s); }
+  function parseDateKey(s){
+    const t = String(s||"").trim();
+    if(isISODate(t)) return t;
+    const m = t.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+    if(m){
+      const dd = pad2(parseInt(m[1],10));
+      const mm = pad2(parseInt(m[2],10));
+      const yy = m[3];
+      return `${yy}-${mm}-${dd}`;
+    }
+    const m2 = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if(m2){
+      const dd = pad2(parseInt(m2[1],10));
+      const mm = pad2(parseInt(m2[2],10));
+      const yy = m2[3];
+      return `${yy}-${mm}-${dd}`;
+    }
+    return null;
+  }
+
+  function detectDelimiter(line){
+    const counts = {
+      ';': (line.match(/;/g)||[]).length,
+      ',': (line.match(/,/g)||[]).length,
+      '\t': (line.match(/\t/g)||[]).length
+    };
+    let best = ';', bestv = -1;
+    for(const k of Object.keys(counts)){
+      if(counts[k] > bestv){ bestv = counts[k]; best = k; }
+    }
+    return bestv <= 0 ? ';' : best;
+  }
+
+  function splitCsvLine(line, delim){
+    const out=[];
+    let cur="", inQ=false;
+    for(let i=0;i<line.length;i++){
+      const ch=line[i];
+      if(ch === '"'){
+        if(inQ && line[i+1] === '"'){ cur += '"'; i++; }
+        else inQ = !inQ;
+      }else if(ch===delim && !inQ){
+        out.push(cur); cur="";
+      }else{
+        cur += ch;
+      }
+    }
+    out.push(cur);
+    return out.map(s=>s.trim());
+  }
+
+  function normalizeHeader(h){
+    return String(h||"").trim().toLowerCase()
+      .replace(/\s+/g,' ')
+      .replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss');
+  }
+
+  function mapType(v){
+    const t = String(v||"").trim().toLowerCase();
+    if(!t) return null;
+    if(t.includes('urlaub')) return 'vac';
+    if(t.includes('krank')) return 'sick';
+    if(t.includes('feiert')) return 'holiday';
+    if(t.includes('ruhe')) return 'rest';
+    if(t.includes('zeitaus')) return 'comp';
+    if(t.includes('arbeits')) return 'work';
+    if(t === 'work') return 'work';
+    return null;
+  }
+
+  function parseYearSummary(lines, delim){
+    // Example:
+    // Stundenübersicht eines Jahres Markus Wolf;2025;Zaunteam
+    const first = splitCsvLine(lines[0], delim);
+    const rawName = first[0] || "";
+    const name = rawName.replace(/^Stundenübersicht eines Jahres/i,'').trim();
+    const year = parseInt((first[1]||"").trim(),10);
+    const company = (first[2]||"").trim();
+
+    let headerIdx = -1;
+    for(let i=0;i<lines.length;i++){
+      const l = lines[i];
+      if(/^Monat/i.test(l) && l.includes("Soll-Stunden") && l.includes("Ist-Stunden") && l.includes("S. Vormonat")){
+        headerIdx = i;
+        break;
+      }
+    }
+    if(headerIdx < 0) return {errors:["Jahres-CSV erkannt, aber Monats-Header nicht gefunden."]};
+
+    const header = splitCsvLine(lines[headerIdx], delim).map(normalizeHeader);
+    const colMonth = header.findIndex(h=>h==='monat');
+    const colCarry = header.findIndex(h=>h.includes('s. vormonat') || h.includes('s.vormonat'));
+    if(colMonth<0 || colCarry<0) return {errors:["Monat/S. Vormonat Spalten fehlen."]};
+
+    const monthMap = {
+      "januar":1,"februar":2,"maerz":3,"märz":3,"april":4,"mai":5,"juni":6,"juli":7,
+      "august":8,"september":9,"oktober":10,"november":11,"dezember":12
+    };
+
+    const months = [];
+    for(let i=headerIdx+1;i<lines.length;i++){
+      const cols = splitCsvLine(lines[i], delim);
+      if(cols.length < 2) continue;
+      const mName = normalizeHeader(cols[colMonth]||"");
+      if(!monthMap[mName]) continue;
+      const mNo = monthMap[mName];
+      const carry = parseGermanNumber(cols[colCarry]);
+      months.push({month:mNo, name:cols[colMonth], carry});
+      if(months.length>=12) break;
+    }
+
+    const jan = months.find(m=>m.month===1);
+    const yearStartSaldo = jan && jan.carry!=null ? jan.carry : 0;
+
+    return {
+      summary: { kind:"year_summary", year, person:name, company, yearStartSaldo, months },
+      errors: []
+    };
+  }
+
+  function parseDaily(lines, delim){
+    const headers = splitCsvLine(lines[0], delim);
+    const hnorm = headers.map(normalizeHeader);
+    const idx = {
+      date: hnorm.findIndex(h => h === 'datum' || h === 'date'),
+      type: hnorm.findIndex(h => h === 'typ' || h === 'type' || h.includes('status')),
+      start: hnorm.findIndex(h => h === 'start' || h.includes('beginn') || h.includes('von')),
+      end: hnorm.findIndex(h => h === 'ende' || h.includes('bis')),
+      brk: hnorm.findIndex(h => h.includes('pause')),
+      place: hnorm.findIndex(h => h === 'ort' || h.includes('baust') || h.includes('stelle') || h.includes('location')),
+      note: hnorm.findIndex(h => h.includes('notiz') || h.includes('bemerk') || h.includes('note')),
+      breakH: hnorm.findIndex(h => h.includes('pause_h') || h.includes('pause (h)')),
+    };
+    if(idx.date < 0) return {rows:[], errors:["Spalte 'Datum' nicht gefunden."]};
+
+    const errors=[];
+    const rows=[];
+    for(let i=1;i<lines.length;i++){
+      const cols = splitCsvLine(lines[i], delim);
+      const dk = parseDateKey(cols[idx.date]);
+      if(!dk){ errors.push(`Zeile ${i+1}: Datum ungültig`); continue; }
+      if(dk < '2025-01-01'){ continue; }
+
+      const rec = { date: dk };
+      const t = idx.type>=0 ? mapType(cols[idx.type]) : null;
+      if(t) rec.type = t;
+
+      const start = idx.start>=0 ? String(cols[idx.start]||"").trim() : "";
+      const end = idx.end>=0 ? String(cols[idx.end]||"").trim() : "";
+      if(start) rec.start = start;
+      if(end) rec.end = end;
+
+      let brk = null;
+      if(idx.brk>=0){
+        brk = parseGermanNumber(cols[idx.brk]);
+      }else if(idx.breakH>=0){
+        brk = parseGermanNumber(cols[idx.breakH]);
+      }
+      if(brk != null) rec.breakH = brk;
+
+      const place = idx.place>=0 ? String(cols[idx.place]||"").trim() : "";
+      if(place) rec.place = place;
+
+      const note = idx.note>=0 ? String(cols[idx.note]||"").trim() : "";
+      if(note) rec.note = note;
+
+      rows.push(rec);
+    }
+    return {rows, errors};
+  }
+
+  function parseCsv(text){
+    const raw = text.replace(/^\uFEFF/, '');
+    const lines = raw.split(/\r?\n/).map(l=>l.trimEnd()).filter(l=>l.trim().length>0);
+    if(lines.length<2) return {kind:'unknown', rows:[], errors:["CSV hat zu wenig Zeilen."]};
+    const delim = detectDelimiter(lines[0]);
+
+    // Detect "Jahresübersicht" CSV (like user sample)
+    if(/^Stundenübersicht eines Jahres/i.test(lines[0])){
+      const ys = parseYearSummary(lines, delim);
+      if(ys.errors && ys.errors.length) return {kind:'year_summary', summary:null, errors:ys.errors};
+      return {kind:'year_summary', summary:ys.summary, errors:[]};
+    }
+
+    // Otherwise treat as daily CSV
+    const daily = parseDaily(lines, delim);
+    return {kind:'daily', rows:daily.rows, errors:daily.errors || []};
   }
 
   function downloadBlob(blob, filename){
     const a = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    a.href = url;
+    a.href = URL.createObjectURL(blob);
     a.download = filename;
     document.body.appendChild(a);
     a.click();
-    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 500);
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+  }
+  function downloadText(text, filename, mime){
+    const blob = new Blob([text], {type: mime || 'text/plain;charset=utf-8'});
+    downloadBlob(blob, filename);
   }
 
-  function toISODateStr(d){
-    return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
-  }
-
-  function makeCSV(rows){
-    const header = [
-      'date','weekday','type',
-      'start1','end1','start2','end2',
-      'pause_h','soll_h','ist_h','diff_h',
-      'location','note'
-    ];
-    const lines = [header.join(';')];
+  function buildCsv(rows){
+    const header = ["Datum","Wochentag","Typ","Start","Ende","Pause_h","Soll_h","Ist_h","Diff_h","Ort","Notiz"].join(";");
+    const lines = [header];
     for(const r of rows){
-      lines.push(header.map(k=>escapeCsv(r[k])).join(';'));
+      lines.push([
+        r.datum,
+        r.wochentag,
+        r.typ,
+        r.start||"",
+        r.ende||"",
+        r.pause_h,
+        r.soll_h,
+        r.ist_h,
+        r.diff_h,
+        (r.ort||"").replace(/;/g,','),
+        (r.notiz||"").replace(/;/g,',')
+      ].join(";"));
     }
-    return lines.join('\n');
+    return lines.join("\n");
   }
 
-  function parseCSV(text){
-    // tolerant CSV parser: supports ';' (default), ',' and tab, with optional quotes
-    const norm = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
-    const rawLines = norm.split('\n').filter(l=>l.trim().length);
-    if(!rawLines.length) return {header:[], rows:[]};
-
-    const delim = detectDelimiter(rawLines[0]);
-    // Strip UTF-8 BOM if present and normalize header keys
-    const header = splitLine(rawLines[0], delim)
-      .map(h => String(h || '').replace(/^\uFEFF/, '').trim());
-    const rows = [];
-
-    for(let i=1;i<rawLines.length;i++){
-      const parts = splitLine(rawLines[i], delim);
-      if(parts.every(p=>!String(p||'').trim().length)) continue;
-      const row = {};
-      for(let j=0;j<header.length;j++){
-        row[header[j]] = parts[j] ?? '';
-      }
-      rows.push(row);
-    }
-    return {header, rows};
-
-    function detectDelimiter(line){
-      const counts = [
-        {d:';', c:(line.match(/;/g)||[]).length},
-        {d:',', c:(line.match(/,/g)||[]).length},
-        {d:'\t', c:(line.match(/\t/g)||[]).length},
-      ];
-      counts.sort((a,b)=>b.c-a.c);
-      // if none found, fallback ';'
-      return counts[0].c ? counts[0].d : ';';
-    }
-
-    function splitLine(line, delim){
-      const out = [];
-      let cur = '';
-      let inQ = false;
-      for(let i=0;i<line.length;i++){
-        const ch = line[i];
-        if(inQ){
-          if(ch === '"'){
-            if(line[i+1] === '"'){ cur += '"'; i++; }
-            else { inQ = false; }
-          }else{
-            cur += ch;
-          }
-        }else{
-          if(ch === '"'){ inQ = true; }
-          else if(ch === delim){
-            out.push(cur);
-            cur = '';
-          }else{
-            cur += ch;
-          }
-        }
-      }
-      out.push(cur);
-      return out;
-    }
+  function escapePdfText(s){
+    return String(s||"").replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)');
   }
 
-  // ---------- Minimal PDF writer (Type1 Courier) ----------
-  function pdfEscape(s){
-    return String(s)
-      .replace(/\\/g,'\\\\')
-      .replace(/\(/g,'\\(')
-      .replace(/\)/g,'\\)');
-  }
+  function createSimplePdf(title, subtitle, lines){
+    const PAGE_W = 595.28, PAGE_H = 841.89;
+    const marginX = 36;
+    const startY = 785;
+    const lineH = 12.5;
+    const maxLines = Math.floor((startY - 60) / lineH);
+    const pages = [];
+    for(let i=0;i<lines.length;i+=maxLines) pages.push(lines.slice(i, i+maxLines));
 
-  function buildSimplePDF(pagesLines, title){
-    // pagesLines: array of array-of-strings
-    const objs = [];
-    const offsets = [0]; // dummy for 1-based objects
-    const enc = (s)=> new TextEncoder().encode(s);
+    const objects = [];
+    function addObj(str){ objects.push(str); return objects.length; }
+    const fontObjNum = addObj("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
 
-    function addObj(str){
-      objs.push(str);
-      return objs.length; // object number
-    }
-
-    const fontObj = addObj(`<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>`);
-
-    // build page objects later after we know their numbers
     const pageObjs = [];
-    const contentObjs = [];
+    for(let p=0;p<pages.length;p++){
+      const contentLines = [];
+      contentLines.push("q");
+      contentLines.push("0.631 0.773 0.114 rg");
+      contentLines.push(`0 ${PAGE_H-40} ${PAGE_W} 40 re f`);
+      contentLines.push("Q");
 
-    for(const lines of pagesLines){
-      const content = makeContentStream(lines, title);
-      const contentObjNum = addObj(content);
-      contentObjs.push(contentObjNum);
+      contentLines.push("BT");
+      contentLines.push(`/F1 16 Tf`);
+      contentLines.push(`${marginX} ${PAGE_H-28} Td`);
+      contentLines.push(`(${escapePdfText(title)}) Tj`);
+      contentLines.push("ET");
 
-      const pageObjNum = addObj(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 ${fontObj} 0 R >> >> /Contents ${contentObjNum} 0 R >>`);
+      if(subtitle){
+        contentLines.push("BT");
+        contentLines.push(`/F1 10 Tf`);
+        contentLines.push(`${marginX} ${PAGE_H-46} Td`);
+        contentLines.push(`(${escapePdfText(subtitle)}) Tj`);
+        contentLines.push("ET");
+      }
+
+      let y = startY;
+      for(const line of pages[p]){
+        contentLines.push("BT");
+        contentLines.push(`/F1 10 Tf`);
+        contentLines.push(`${marginX} ${y} Td`);
+        contentLines.push(`(${escapePdfText(line)}) Tj`);
+        contentLines.push("ET");
+        y -= lineH;
+      }
+      const stream = contentLines.join("\n");
+      const contentObjNum = addObj(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);
+      const pageObjNum = addObj(`<< /Type /Page /Parent 0 0 R /MediaBox [0 0 ${PAGE_W.toFixed(2)} ${PAGE_H.toFixed(2)}] /Resources << /Font << /F1 ${fontObjNum} 0 R >> >> /Contents ${contentObjNum} 0 R >>`);
       pageObjs.push(pageObjNum);
     }
 
-    const kids = pageObjs.map(n=>`${n} 0 R`).join(' ');
-    const pagesObj = addObj(`<< /Type /Pages /Kids [ ${kids} ] /Count ${pageObjs.length} >>`); // will be #2? not necessarily yet.
-    // Ensure Pages is object 2 for Page objects parent ref "2 0 R"
-    // We used "2 0 R" above. So we must place Pages as object 2.
-    // To enforce: rebuild with fixed ordering.
-    // We'll rebuild objects with deterministic numbering.
-
-    // Rebuild deterministically:
-    const objStrings = [];
-    // 1 Catalog, 2 Pages, 3 Font, then alternating content/page from 4 onward.
-    // Build content/page objects again:
-    const pageObjNums = [];
-    const contentObjNums = [];
-    let objNo = 3;
-
-    // place font as 3
-    objStrings[3] = `<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>`;
-
-    // placeholder for pages as 2
-    objStrings[2] = ''; // set later
-    // catalog as 1
-    objStrings[1] = `<< /Type /Catalog /Pages 2 0 R >>`;
-
-    // pages & content
-    for(const lines of pagesLines){
-      // content object
-      objNo++;
-      const cNo = objNo;
-      contentObjNums.push(cNo);
-      objStrings[cNo] = makeContentStream(lines, title);
-
-      // page object
-      objNo++;
-      const pNo = objNo;
-      pageObjNums.push(pNo);
-      objStrings[pNo] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${cNo} 0 R >>`;
+    const kids = pageObjs.map(n => `${n} 0 R`).join(" ");
+    const pagesObjNum = addObj(`<< /Type /Pages /Kids [ ${kids} ] /Count ${pageObjs.length} >>`);
+    for(const n of pageObjs){
+      objects[n-1] = objects[n-1].replace("/Parent 0 0 R", `/Parent ${pagesObjNum} 0 R`);
     }
+    const catalogObjNum = addObj(`<< /Type /Catalog /Pages ${pagesObjNum} 0 R >>`);
 
-    objStrings[2] = `<< /Type /Pages /Kids [ ${pageObjNums.map(n=>`${n} 0 R`).join(' ')} ] /Count ${pageObjNums.length} >>`;
-
-    // build final PDF
-    let out = `%PDF-1.4\n%âãÏÓ\n`;
-    const xref = [];
-    const maxObj = objStrings.length-1;
-
-    for(let n=1;n<=maxObj;n++){
-      if(!objStrings[n]) continue;
-      xref[n] = out.length;
-      out += `${n} 0 obj\n${objStrings[n]}\nendobj\n`;
+    let pdf = "%PDF-1.4\n";
+    const offsets = [0];
+    for(let i=0;i<objects.length;i++){
+      offsets.push(pdf.length);
+      pdf += `${i+1} 0 obj\n${objects[i]}\nendobj\n`;
     }
-
-    const xrefStart = out.length;
-    out += `xref\n0 ${maxObj+1}\n`;
-    out += `0000000000 65535 f \n`;
-    for(let n=1;n<=maxObj;n++){
-      const off = xref[n] ?? 0;
-      out += `${String(off).padStart(10,'0')} 00000 n \n`;
+    const xrefPos = pdf.length;
+    pdf += "xref\n";
+    pdf += `0 ${objects.length+1}\n`;
+    pdf += "0000000000 65535 f \n";
+    for(let i=1;i<offsets.length;i++){
+      const off = String(offsets[i]).padStart(10,'0');
+      pdf += `${off} 00000 n \n`;
     }
-    out += `trailer\n<< /Size ${maxObj+1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`;
+    pdf += "trailer\n";
+    pdf += `<< /Size ${objects.length+1} /Root ${catalogObjNum} 0 R >>\n`;
+    pdf += "startxref\n";
+    pdf += `${xrefPos}\n%%EOF`;
 
-    return new Blob([enc(out)], {type:'application/pdf'});
-
-    function makeContentStream(lines, title){
-      const marginLeft = 44;
-      const topY = 800;
-      const lineH = 12;
-      const fontSizeTitle = 12;
-      const fontSize = 9;
-
-      const safeTitle = pdfEscape(title || 'Arbeitszeiterfassung');
-      let stream = '';
-      stream += `BT\n/F1 ${fontSizeTitle} Tf\n${marginLeft} ${topY} Td\n(${safeTitle}) Tj\nET\n`;
-
-      let y = topY - 20;
-      stream += `BT\n/F1 ${fontSize} Tf\n`;
-      for(const line of lines){
-        stream += `${marginLeft} ${y} Td\n(${pdfEscape(line)}) Tj\n`;
-        // reset text matrix for next line (relative moves are annoying in raw PDF)
-        stream += `ET\nBT\n/F1 ${fontSize} Tf\n`;
-        y -= lineH;
-      }
-      stream += `ET\n`;
-
-      const bytes = new TextEncoder().encode(stream);
-      return `<< /Length ${bytes.length} >>\nstream\n${stream}\nendstream`;
-    }
+    return new Blob([pdf], {type: "application/pdf"});
   }
 
-  function linesForMonth(monthInfo){
-    // monthInfo: {title, rows} rows are already formatted strings
-    const lines = [];
-    lines.push(monthInfo.headerLine);
-    lines.push('-'.repeat(monthInfo.headerLine.length));
-    for(const r of monthInfo.rows) lines.push(r);
-    return lines;
-  }
-
-  function chunkLines(allLines, maxPerPage){
-    const pages = [];
-    for(let i=0;i<allLines.length;i+=maxPerPage){
-      pages.push(allLines.slice(i, i+maxPerPage));
-    }
-    return pages;
-  }
-
-  window.AZ_EXPORT = {
-    fmtHoursFromMin,
-    fmtHoursWithSuffix,
+  window.AZExport = {
+    formatHours,
+    formatNum,
+    parseGermanNumber,
+    parseCsv,
+    buildCsv,
+    downloadText,
     downloadBlob,
-    makeCSV,
-    parseCSV,
-    buildSimplePDF,
-    linesForMonth,
-    chunkLines,
-    toISODateStr,
+    createSimplePdf
   };
 })();

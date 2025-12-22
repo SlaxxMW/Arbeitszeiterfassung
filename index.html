@@ -2,123 +2,234 @@
 <html lang="de">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#799114" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#A1C51D" />
   <title>Arbeitszeiterfassung</title>
-  <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="icon" href="icon-192.png" />
-  <link rel="apple-touch-icon" href="icon-192.png" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="manifest" href="manifest.webmanifest?v=1.4.0" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="styles.css?v=1.4.0" />
 </head>
 <body>
-  <div id="app">
-    <!-- Top App Bar -->
-    <header class="topbar" role="banner">
-      <div class="topbar__title">Arbeitszeiterfassung</div>
-      <div class="topbar__actions">
-        <button class="iconbtn" id="btnExport" title="Export / Import" aria-label="Export / Import">
-          <!-- share/export icon -->
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 5l-1.42 1.42 2.17 2.17H10v2h6.75l-2.17 2.17L16 14l6-6-6-6zM4 5h10v2H6v12h8v2H4V5z"/></svg>
-        </button>
-        <button class="iconbtn" id="btnYear" title="Jahr" aria-label="Jahr">
-          <!-- calendar icon -->
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10h5v5H7v-5zm10-7h-1V1h-2v2H10V1H8v2H7C5.9 3 5 3.9 5 5v16c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 18H7V8h10v13z"/></svg>
-        </button>
-        <button class="iconbtn" id="btnSettings" title="Einstellungen" aria-label="Einstellungen">
-          <!-- wrench icon -->
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22.7 19.3l-6.1-6.1c.4-1.2.2-2.6-.7-3.6-1.1-1.1-2.8-1.3-4.1-.6l2.3 2.3-1.4 1.4-2.3-2.3c-.7 1.3-.5 3 .6 4.1 1 1 2.4 1.2 3.6.7l6.1 6.1c.4.4 1 .4 1.4 0l.6-.6c.4-.4.4-1 0-1.4zM2 21h6v-2H4V5h10v4h2V5c0-1.1-.9-2-2-2H4C2.9 3 2 3.9 2 5v16c0 1.1.9 2 2 2z"/></svg>
-        </button>
-        <button class="iconbtn" id="btnMenu" title="Menü" aria-label="Menü">
-          <!-- more-vert -->
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a2 2 0 110-4 2 2 0 010 4zm0 2a2 2 0 110 4 2 2 0 010-4zm0 6a2 2 0 110 4 2 2 0 010-4z"/></svg>
-        </button>
-      </div>
-    </header>
-
-    <div class="updateBanner hidden" id="updateBanner" role="status" aria-live="polite">
-      <div class="updateBanner__text">Update verfügbar</div>
-      <button class="btn btnSmall" id="btnUpdateNow">Aktualisieren</button>
+  <header class="appbar">
+    <div class="appbar-left">
+      <div class="app-title">Arbeitszeiterfassung</div>
+      <div class="app-subtitle" id="appVersion"></div>
     </div>
+    <div class="appbar-right">
+      <button class="icon-btn" id="btnExport" title="Export"><span>⤓</span></button>
+      <button class="icon-btn" id="btnSettings" title="Einstellungen"><span>🔧</span></button>
+      <button class="icon-btn" id="btnMenu" title="Menü"><span>⋮</span></button>
+    </div>
+  </header>
 
-    <!-- Month Header (sticky) -->
-    <section class="monthHeader" aria-label="Monat Übersicht">
-      <div class="mh__left">
-        <div class="mh__brandRow">
-          <div class="mh__brand" id="companyName">Zaunteam</div>
-          <div class="mh__spacer"></div>
-          <div class="mh__badge" id="vacationBadge" title="Urlaub übrig">Urlaub: 30</div>
-        </div>
-        <div class="mh__person" id="personName"></div>
-      </div>
-      <div class="mh__right">
-        <div class="mh__monthRow">
-          <button class="navbtn" id="btnPrevMonth" aria-label="Vorheriger Monat">‹</button>
-          <div class="mh__month" id="monthTitle">November 2025</div>
-          <button class="navbtn" id="btnNextMonth" aria-label="Nächster Monat">›</button>
-        </div>
-        <div class="mh__stats" id="monthStats">
-          <!-- populated by JS -->
-        </div>
-      </div>
-    </section>
-
-    <!-- Editor panel (collapsible) -->
-    <section class="editorWrap" aria-label="Tag bearbeiten">
-      <div class="editor" id="editor" aria-hidden="true">
-        <!-- populated by JS -->
-      </div>
-    </section>
-
-    <!-- Day list -->
-    <main class="dayList" id="dayList" role="main" aria-label="Tage">
-      <!-- populated by JS -->
-    </main>
-
-    <!-- Modals -->
-    <div class="modalBackdrop hidden" id="modalBackdrop" aria-hidden="true"></div>
-
-    <section class="modal hidden" id="settingsModal" role="dialog" aria-modal="true" aria-label="Einstellungen">
-      <div class="modal__header">
-        <div class="modal__title">Einstellungen</div>
-        <button class="iconbtn" id="closeSettings" aria-label="Schließen">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.4L17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/></svg>
-        </button>
-      </div>
-      <div class="modal__body" id="settingsBody"></div>
-      <div class="modal__footer">
-        <button class="btn" id="saveSettings">Speichern</button>
-      </div>
-    </section>
-
-    <section class="modal hidden" id="exportModal" role="dialog" aria-modal="true" aria-label="Export und Import">
-      <div class="modal__header">
-        <div class="modal__title">Export / Import</div>
-        <button class="iconbtn" id="closeExport" aria-label="Schließen">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.4L17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/></svg>
-        </button>
-      </div>
-      <div class="modal__body" id="exportBody"></div>
-      <div class="modal__footer">
-        <button class="btn btn--ghost" id="btnShare">Teilen</button>
-      </div>
-    </section>
-
-    <section class="modal hidden" id="yearModal" role="dialog" aria-modal="true" aria-label="Jahresübersicht">
-      <div class="modal__header">
-        <div class="modal__title" id="yearTitle">Jahr</div>
-        <button class="iconbtn" id="closeYear" aria-label="Schließen">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.4L17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/></svg>
-        </button>
-      </div>
-      <div class="modal__body" id="yearBody"></div>
-    </section>
-
-    <div class="toast" id="toast" aria-live="polite" aria-atomic="true"></div>
+  <div class="update-banner hidden" id="updateBanner">
+    <div class="update-text" id="updateText">Update verfügbar</div>
+    <button class="btn btn-primary" id="btnUpdateNow">Aktualisieren</button>
   </div>
 
-  <script src="holidays.js"></script>
-  <script src="db.js"></script>
-  <script src="export.js"></script>
-  <script src="app.js"></script>
+  <main class="main">
+    <section class="month-header" id="monthHeader">
+      <div class="mh-left">
+        <div class="mh-company" id="companyName">Zaunteam</div>
+      </div>
+      <div class="mh-right">
+        <div class="mh-monthrow">
+          <button class="nav-btn" id="btnPrevMonth" title="Vorheriger Monat">‹</button>
+          <div class="mh-month" id="monthLabel">—</div>
+          <button class="nav-btn" id="btnNextMonth" title="Nächster Monat">›</button>
+        </div>
+        <div class="mh-stats">
+          <div class="stat-row"><span>Soll-Stunden</span><span class="stat-val" id="statSoll">0,00 h</span></div>
+          <div class="stat-row"><span>Ist-Stunden</span><span class="stat-val" id="statIst">0,00 h</span></div>
+          <div class="stat-row"><span>S. Vormonat</span><span class="stat-val" id="statCarry">0,00 h</span></div>
+          <div class="stat-row"><span>Saldo</span><span class="stat-val" id="statSaldo">0,00 h</span></div>
+        </div>
+        <div class="mh-actions">
+          <button class="btn btn-light" id="btnYearView">Jahr</button>
+          <button class="btn btn-light" id="btnToday">Heute</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="editor hidden" id="dayEditor">
+      <div class="editor-top">
+        <div class="editor-title" id="editorTitle">—</div>
+        <div class="editor-week" id="editorWeek">—</div>
+      </div>
+      <div class="editor-grid">
+        <div class="editor-block">
+          <div class="block-title">1. Schicht</div>
+          <div class="row">
+            <label>Typ</label>
+            <select id="editType">
+              <option value="work">Arbeitszeit</option>
+              <option value="vac">Urlaub</option>
+              <option value="sick">Krank</option>
+              <option value="holiday">Feiertag</option>
+              <option value="rest">Ruhetag</option>
+              <option value="comp">Zeitausgleich</option>
+            </select>
+          </div>
+          <div class="row">
+            <label>Start</label>
+            <input type="time" id="editStart" />
+            <label class="mid">bis</label>
+            <input type="time" id="editEnd" />
+          </div>
+          <div class="row">
+            <label>Ort</label>
+            <input type="text" id="editPlace" placeholder="Kein Ort" />
+          </div>
+        </div>
+
+        <div class="editor-block">
+          <div class="block-title">Essens-/Pausenzeiten</div>
+          <div class="row">
+            <label>Pause</label>
+            <input type="number" id="editBreak" step="0.05" min="0" />
+            <span class="suffix">h</span>
+          </div>
+          <div class="hint">Default bei Arbeitstagen: 0,50 h</div>
+        </div>
+
+        <div class="editor-block">
+          <div class="block-title">Tagesnotiz</div>
+          <textarea id="editNote" rows="2" placeholder="Bemerkung zum Tag."></textarea>
+        </div>
+      </div>
+
+      <div class="editor-actions">
+        <button class="btn btn-light" id="btnCopyYesterday">Wie gestern</button>
+        <div class="spacer"></div>
+        <button class="btn btn-primary" id="btnSaveDay">Speichern</button>
+        <button class="btn btn-light" id="btnCloseDay">Schließen</button>
+      </div>
+    </section>
+
+    <section class="list" id="dayList" aria-label="Tage Liste"></section>
+
+    <section class="yearview hidden" id="yearView">
+      <div class="yearview-head">
+        <div class="year-title" id="yearTitle">Jahr —</div>
+        <div class="year-actions">
+          <button class="btn btn-light" id="btnBackToMonth">Zurück</button>
+        </div>
+      </div>
+      <div class="year-cards" id="yearCards"></div>
+      <div class="year-summary" id="yearSummary"></div>
+    </section>
+  </main>
+
+  <div class="modal hidden" id="settingsModal" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">Einstellungen</div>
+        <button class="icon-btn" id="btnCloseSettings" title="Schließen">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <label>Firma</label>
+          <input type="text" id="setCompany" />
+        </div>
+        <div class="form-row">
+          <label>Name (Export/PDF)</label>
+          <input type="text" id="setPerson" />
+        </div>
+
+        <div class="form-row">
+          <label>Bundesland (Feiertage)</label>
+          <select id="setState"></select>
+        </div>
+
+        <div class="form-row">
+          <label>Mariä Himmelfahrt</label>
+          <label class="toggle"><input type="checkbox" id="setAssumption" /> <span>aktiv</span></label>
+        </div>
+        <div class="form-row">
+          <label>Augsburger Friedensfest</label>
+          <label class="toggle"><input type="checkbox" id="setAugsburg" /> <span>aktiv</span></label>
+        </div>
+
+        <div class="form-row">
+          <label>Urlaub/Jahr</label>
+          <input type="number" id="setVacationPerYear" min="0" step="1" />
+        </div>
+
+        <div class="form-row">
+          <label>Startsaldo Jahr (Stunden)</label>
+          <input type="number" id="setYearStartSaldo" step="0.25" />
+          <div class="small">Gilt für das aktuell ausgewählte Jahr.</div>
+        </div>
+
+        <hr />
+
+        <div class="form-row">
+          <label>Import CSV</label>
+          <input type="file" id="fileImportCsv" accept=".csv,text/csv" />
+          <div class="small">Nach Auswahl erscheint eine Import-Vorschau.</div>
+        </div>
+
+        <div class="form-row">
+          <label>Export</label>
+          <div class="btn-row">
+            <button class="btn btn-light" id="btnExportCsvMonth">CSV Monat</button>
+            <button class="btn btn-light" id="btnExportCsvYear">CSV Jahr</button>
+            <button class="btn btn-light" id="btnExportPdfMonth">PDF Monat</button>
+            <button class="btn btn-light" id="btnExportPdfYear">PDF Jahr</button>
+            <button class="btn btn-light" id="btnBackupJson">Backup JSON</button>
+            <button class="btn btn-light" id="btnRestoreJson">Restore JSON</button>
+            <input class="hidden" type="file" id="fileRestoreJson" accept=".json,application/json" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label>Update</label>
+          <div class="btn-row">
+            <button class="btn btn-light" id="btnCheckUpdate">Update suchen</button>
+            <button class="btn btn-danger" id="btnCacheReset">Cache/Update-Reset</button>
+          </div>
+          <div class="small" id="updateInfo"></div>
+        </div>
+
+        <div class="form-row">
+          <label>Feiertage Vorschau (aktuelles Jahr)</label>
+          <div class="holiday-box" id="holidayPreview">—</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" id="btnSaveSettings">Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="importModal" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">CSV Import</div>
+        <button class="icon-btn" id="btnCloseImport" title="Schließen">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="small" id="importMeta">—</div>
+        <div class="import-preview" id="importPreview"></div>
+        <div class="form-row">
+          <label>Konflikte</label>
+          <select id="importMode">
+            <option value="merge">Zusammenführen (empfohlen)</option>
+            <option value="replace">Ersetzen</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" id="btnConfirmImport">Importieren</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast hidden" id="toast"></div>
+
+  <script src="db.js?v=1.4.0"></script>
+  <script src="holidays.js?v=1.4.0"></script>
+  <script src="export.js?v=1.4.0"></script>
+  <script src="app.js?v=1.4.0"></script>
 </body>
 </html>

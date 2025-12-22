@@ -1,18 +1,41 @@
-/* holidays.js - Germany holiday engine (offline) with Bundesland selection */
+/* holidays.js - German public holidays by Bundesland (offline) */
 (function(){
   'use strict';
 
+  const STATES = [
+    ["BW","Baden-Württemberg"],
+    ["BY","Bayern"],
+    ["BE","Berlin"],
+    ["BB","Brandenburg"],
+    ["HB","Bremen"],
+    ["HH","Hamburg"],
+    ["HE","Hessen"],
+    ["MV","Mecklenburg-Vorpommern"],
+    ["NI","Niedersachsen"],
+    ["NW","Nordrhein-Westfalen"],
+    ["RP","Rheinland-Pfalz"],
+    ["SH","Schleswig-Holstein"],
+    ["SL","Saarland"],
+    ["SN","Sachsen"],
+    ["ST","Sachsen-Anhalt"],
+    ["TH","Thüringen"]
+  ];
+
   function pad2(n){ return String(n).padStart(2,'0'); }
-  function toDateStr(d){
-    return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+  function toKey(d){
+    const y = d.getFullYear();
+    const m = pad2(d.getMonth()+1);
+    const day = pad2(d.getDate());
+    return `${y}-${m}-${day}`;
   }
-  function addDays(d, days){
-    const x = new Date(d.getTime());
-    x.setDate(x.getDate()+days);
-    return x;
+  function fromYMD(y,m,day){ return new Date(Date.UTC(y, m-1, day, 12,0,0)); } // noon UTC
+  function addDays(date, days){
+    const d = new Date(date.getTime());
+    d.setUTCDate(d.getUTCDate()+days);
+    return d;
   }
 
-  // Anonymous Gregorian algorithm (Meeus/Jones/Butcher) for Easter Sunday
+  // Meeus/Jones/Butcher algorithm (Gregorian)
   function easterSunday(year){
     const a = year % 19;
     const b = Math.floor(year / 100);
@@ -26,107 +49,82 @@
     const k = c % 4;
     const l = (32 + 2*e + 2*i - h - k) % 7;
     const m = Math.floor((a + 11*h + 22*l) / 451);
-    const month = Math.floor((h + l - 7*m + 114) / 31); // 3=March,4=April
+    const month = Math.floor((h + l - 7*m + 114) / 31); // 3=March, 4=April
     const day = ((h + l - 7*m + 114) % 31) + 1;
-    return new Date(year, month-1, day);
+    return fromYMD(year, month, day);
   }
 
-  function repentanceDay(year){
-    // Buß- und Bettag: Wednesday before Nov 23
-    const nov23 = new Date(year, 10, 23); // month 10 = November
-    const dow = nov23.getDay(); // 0=Sun..6=Sat
-    // target Wednesday = 3
-    let diff = dow - 3;
+  function bussUndBettag(year){
+    // Wednesday before Nov 23
+    const d = fromYMD(year, 11, 23);
+    // getUTCDay(): 0=Sun..6=Sat, we need previous Wednesday (3)
+    const wd = d.getUTCDay();
+    let diff = (wd - 3);
     if(diff < 0) diff += 7;
-    // subtract diff days to get to Wednesday on/before Nov 23, but we need the Wednesday BEFORE Nov 23 (not on it if it's Wednesday?)
-    // Rule says "the Wednesday before November 23". If Nov 23 is Wednesday, then it's Nov 16.
-    if(dow === 3) diff = 7;
-    return addDays(nov23, -diff);
+    return addDays(d, -diff - 7); // Wednesday before the week containing 23rd
   }
 
-  const STATES = [
-    {code:'BW', name:'Baden-Württemberg'},
-    {code:'BY', name:'Bayern'},
-    {code:'BE', name:'Berlin'},
-    {code:'BB', name:'Brandenburg'},
-    {code:'HB', name:'Bremen'},
-    {code:'HH', name:'Hamburg'},
-    {code:'HE', name:'Hessen'},
-    {code:'MV', name:'Mecklenburg-Vorpommern'},
-    {code:'NI', name:'Niedersachsen'},
-    {code:'NW', name:'Nordrhein-Westfalen'},
-    {code:'RP', name:'Rheinland-Pfalz'},
-    {code:'SL', name:'Saarland'},
-    {code:'SN', name:'Sachsen'},
-    {code:'ST', name:'Sachsen-Anhalt'},
-    {code:'SH', name:'Schleswig-Holstein'},
-    {code:'TH', name:'Thüringen'},
-  ];
+  function isIn(list, state){ return list.indexOf(state) >= 0; }
 
-  function getHolidaysForState(year, stateCode, opts){
+  function holidaysForYear(year, state, opts){
+    opts = opts || {};
     const map = new Map();
-    const addFixed = (mm,dd,name)=> map.set(`${year}-${pad2(mm)}-${pad2(dd)}`, name);
-    const addMov = (d,name)=> map.set(toDateStr(d), name);
 
-    // Germany (nationwide) fixed
-    addFixed(1,1,'Neujahr');
-    addFixed(5,1,'Tag der Arbeit');
-    addFixed(10,3,'Tag der Deutschen Einheit');
-    addFixed(12,25,'1. Weihnachtstag');
-    addFixed(12,26,'2. Weihnachtstag');
+    const easter = easterSunday(year);
+    // Common nationwide holidays
+    map.set(toKey(fromYMD(year,1,1)), "Neujahr");
+    map.set(toKey(fromYMD(year,5,1)), "Tag der Arbeit");
+    map.set(toKey(fromYMD(year,10,3)), "Tag der Deutschen Einheit");
+    map.set(toKey(fromYMD(year,12,25)), "1. Weihnachtstag");
+    map.set(toKey(fromYMD(year,12,26)), "2. Weihnachtstag");
 
-    // Germany (nationwide) movable (based on Easter)
-    const eas = easterSunday(year);
-    addMov(addDays(eas, -2), 'Karfreitag');
-    addMov(addDays(eas,  1), 'Ostermontag');
-    addMov(addDays(eas, 39), 'Christi Himmelfahrt');
-    addMov(addDays(eas, 50), 'Pfingstmontag');
-
-    const st = (stateCode || 'BY').toUpperCase();
+    // Easter-based nationwide
+    map.set(toKey(addDays(easter,-2)), "Karfreitag");
+    map.set(toKey(addDays(easter,1)), "Ostermontag");
+    map.set(toKey(addDays(easter,39)), "Christi Himmelfahrt");
+    map.set(toKey(addDays(easter,50)), "Pfingstmontag");
 
     // State-specific fixed
-    const wantsEpiphany = ['BW','BY','ST'].includes(st);
-    const wantsWomensDay = ['BE','MV'].includes(st);
-    const wantsAssumption = ['BY','SL'].includes(st);
-    const wantsAllSaints = ['BW','BY','NW','RP','SL'].includes(st);
-    const wantsReformation = ['BB','BE','HB','HH','MV','NI','SN','ST','SH','TH'].includes(st);
-    const wantsWorldChild = (st === 'TH');
+    if(isIn(["BW","BY","ST"], state)) map.set(toKey(fromYMD(year,1,6)), "Heilige Drei Könige");
+    if(isIn(["BE","MV"], state)) map.set(toKey(fromYMD(year,3,8)), "Internationaler Frauentag");
+    if(isIn(["TH"], state)) map.set(toKey(fromYMD(year,9,20)), "Weltkindertag");
 
-    if(wantsEpiphany) addFixed(1,6,'Heilige Drei Könige');
-    if(wantsWomensDay) addFixed(3,8,'Internationaler Frauentag');
-    if(wantsAllSaints) addFixed(11,1,'Allerheiligen');
-    if(wantsReformation) addFixed(10,31,'Reformationstag');
-    if(wantsWorldChild) addFixed(9,20,'Weltkindertag');
+    // Reformationstag (Oct 31)
+    if(isIn(["BB","HB","HH","MV","NI","SN","ST","SH","TH"], state)) map.set(toKey(fromYMD(year,10,31)), "Reformationstag");
 
-    // State-specific movable
-    const wantsCorpusChristi = ['BW','BY','HE','NW','RP','SL'].includes(st);
-    if(wantsCorpusChristi) addMov(addDays(eas, 60), 'Fronleichnam');
+    // Allerheiligen (Nov 1)
+    if(isIn(["BW","BY","NW","RP","SL"], state)) map.set(toKey(fromYMD(year,11,1)), "Allerheiligen");
 
-    if(st === 'SN') addMov(repentanceDay(year), 'Buß- und Bettag');
+    // Buß- und Bettag (SN)
+    if(state === "SN") map.set(toKey(bussUndBettag(year)), "Buß- und Bettag");
 
-    // Options (local/special toggles)
-    // Mariä Himmelfahrt is only a full public holiday in the Saarland,
-    // and in parts of Bavaria. Keep as opt-in when state is BY (and optional in SL if user wants explicit control).
-    if(opts && opts.includeAssumption && wantsAssumption){
-      addFixed(8,15,'Mariä Himmelfahrt');
-    } else if(st === 'SL' && wantsAssumption){
-      // Saarland: Mariä Himmelfahrt is generally a public holiday.
-      // Keep it enabled by default for SL unless user explicitly disables (opt can override)
-      if(!(opts && opts.forceDisableAssumption)) addFixed(8,15,'Mariä Himmelfahrt');
-    }
+    // Easter Sunday / Whit Sunday holidays in some states
+    if(state === "BB") map.set(toKey(easter), "Ostersonntag");
+    if(state === "BB") map.set(toKey(addDays(easter,49)), "Pfingstsonntag");
 
-    // Augsburg Peace Festival is local (Augsburg city). Provide opt-in for BY.
-    if(opts && opts.includeAugsburgPeace && st === 'BY'){
-      addFixed(8,8,'Augsburger Friedensfest');
-    }
+    // Corpus Christi (Fronleichnam) in some states
+    if(isIn(["BW","BY","HE","NW","RP","SL"], state)) map.set(toKey(addDays(easter,60)), "Fronleichnam");
 
-    return map; // Map(dateStr => name)
+    // Mariä Himmelfahrt (15 Aug): SL always; BY optional
+    if(state === "SL") map.set(toKey(fromYMD(year,8,15)), "Mariä Himmelfahrt");
+    if(state === "BY" && opts.assumption) map.set(toKey(fromYMD(year,8,15)), "Mariä Himmelfahrt");
+
+    // Augsburger Friedensfest (8 Aug) - only Augsburg (optional)
+    if(state === "BY" && opts.augsburg) map.set(toKey(fromYMD(year,8,8)), "Augsburger Friedensfest");
+
+    return map;
   }
 
-  window.AZ_HOLIDAYS = {
+  function getHolidayName(dateKey, state, opts){
+    const y = parseInt(dateKey.slice(0,4), 10);
+    const map = holidaysForYear(y, state, opts);
+    return map.get(dateKey) || null;
+  }
+
+  window.AZHolidays = {
     STATES,
     easterSunday,
-    repentanceDay,
-    getHolidaysForState,
+    holidaysForYear,
+    getHolidayName
   };
 })();

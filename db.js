@@ -1,177 +1,167 @@
-
-/* db.js - minimal IndexedDB wrapper (offline-first) */
+/* db.js - IndexedDB wrapper (offline, stable across updates) */
 (function(){
   'use strict';
 
-  const DB_NAME = 'arbeitszeit_db_v1';
+  const DB_NAME = 'az_pwa_db';
   const DB_VERSION = 1;
+  const STORE_DAYS = 'days';
+  const STORE_SETTINGS = 'settings';
 
   function openDB(){
-    return new Promise((resolve, reject)=>{
+    return new Promise((resolve, reject) => {
       const req = indexedDB.open(DB_NAME, DB_VERSION);
-      req.onupgradeneeded = (e)=>{
+      req.onupgradeneeded = () => {
         const db = req.result;
-        if(!db.objectStoreNames.contains('days')){
-          db.createObjectStore('days', { keyPath:'date' });
+        if(!db.objectStoreNames.contains(STORE_DAYS)){
+          const s = db.createObjectStore(STORE_DAYS, { keyPath: 'date' }); // date: YYYY-MM-DD
+          s.createIndex('byDate', 'date', {unique:true});
         }
-        if(!db.objectStoreNames.contains('meta')){
-          db.createObjectStore('meta', { keyPath:'key' });
+        if(!db.objectStoreNames.contains(STORE_SETTINGS)){
+          db.createObjectStore(STORE_SETTINGS, { keyPath: 'key' });
         }
       };
-      req.onsuccess = ()=> resolve(req.result);
-      req.onerror = ()=> reject(req.error);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
     });
   }
 
-  async function withStore(storeName, mode, fn){
+  async function tx(store, mode, fn){
     const db = await openDB();
-    return new Promise((resolve, reject)=>{
-      const tx = db.transaction(storeName, mode);
-      const store = tx.objectStore(storeName);
-      const res = fn(store);
-      tx.oncomplete = ()=> resolve(res);
-      tx.onerror = ()=> reject(tx.error);
-      tx.onabort = ()=> reject(tx.error);
+    return new Promise((resolve, reject) => {
+      const t = db.transaction(store, mode);
+      const s = t.objectStore(store);
+      let result;
+      Promise.resolve(fn(s)).then(r => { result = r; }).catch(reject);
+      t.oncomplete = () => resolve(result);
+      t.onerror = () => reject(t.error);
+      t.onabort = () => reject(t.error);
     });
   }
 
-  async function getSettings(){
-    try{
-      const db = await openDB();
-      return await new Promise((resolve, reject)=>{
-        const tx = db.transaction('meta','readonly');
-        const store = tx.objectStore('meta');
-        const req = store.get('settings');
-        req.onsuccess = ()=> resolve(req.result ? req.result.value : null);
-        req.onerror = ()=> reject(req.error);
-      });
-    }catch(e){
-      console.warn('IndexedDB not available, fallback to localStorage', e);
-      const raw = localStorage.getItem('az_settings_v1');
-      return raw ? JSON.parse(raw) : null;
-    }
+  function getDateKey(d){ return d; }
+
+  async function getDay(dateKey){
+    return tx(STORE_DAYS, 'readonly', (s) => new Promise((res, rej) => {
+      const req = s.get(getDateKey(dateKey));
+      req.onsuccess = () => res(req.result || null);
+      req.onerror = () => rej(req.error);
+    }));
   }
 
-  async function setSettings(value){
-    try{
-      await withStore('meta','readwrite',(store)=> store.put({key:'settings', value}));
-    }catch(e){
-      localStorage.setItem('az_settings_v1', JSON.stringify(value));
-    }
+  async function setDay(rec){
+    // rec: {date, type, start, end, breakH, place, note, updatedAt}
+    return tx(STORE_DAYS, 'readwrite', (s) => new Promise((res, rej) => {
+      const req = s.put(rec);
+      req.onsuccess = () => res(true);
+      req.onerror = () => rej(req.error);
+    }));
   }
 
-  async function getDay(date){
-    try{
-      const db = await openDB();
-      return await new Promise((resolve, reject)=>{
-        const tx = db.transaction('days','readonly');
-        const store = tx.objectStore('days');
-        const req = store.get(date);
-        req.onsuccess = ()=> resolve(req.result || null);
-        req.onerror = ()=> reject(req.error);
-      });
-    }catch(e){
-      const raw = localStorage.getItem('az_day_'+date);
-      return raw ? JSON.parse(raw) : null;
-    }
+  async function deleteDay(dateKey){
+    return tx(STORE_DAYS, 'readwrite', (s) => new Promise((res, rej) => {
+      const req = s.delete(getDateKey(dateKey));
+      req.onsuccess = () => res(true);
+      req.onerror = () => rej(req.error);
+    }));
   }
 
-  async function setDay(record){
-    if(!record || !record.date) throw new Error('Day record needs date');
-    try{
-      await withStore('days','readwrite',(store)=> store.put(record));
-    }catch(e){
-      localStorage.setItem('az_day_'+record.date, JSON.stringify(record));
-    }
-  }
-
-  async function deleteDay(date){
-    try{
-      await withStore('days','readwrite',(store)=> store.delete(date));
-    }catch(e){
-      localStorage.removeItem('az_day_'+date);
-    }
-  }
-
-  async function getDaysInRange(dateFrom, dateTo){
-    // inclusive range
-    try{
-      const db = await openDB();
-      return await new Promise((resolve, reject)=>{
-        const tx = db.transaction('days','readonly');
-        const store = tx.objectStore('days');
-        const out = [];
-        const req = store.openCursor();
-        req.onsuccess = ()=>{
-          const cur = req.result;
-          if(cur){
-            const k = cur.key;
-            if(k >= dateFrom && k <= dateTo) out.push(cur.value);
-            cur.continue();
-          }else{
-            resolve(out);
-          }
-        };
-        req.onerror = ()=> reject(req.error);
-      });
-    }catch(e){
-      // localStorage fallback (best-effort)
+  async function getRange(startKey, endKey){
+    // inclusive range [startKey, endKey]
+    return tx(STORE_DAYS, 'readonly', (s) => new Promise((res, rej) => {
       const out = [];
-      for(let i=0;i<localStorage.length;i++){
-        const key = localStorage.key(i);
-        if(key && key.startsWith('az_day_')){
-          const date = key.substring('az_day_'.length);
-          if(date >= dateFrom && date <= dateTo){
-            try{ out.push(JSON.parse(localStorage.getItem(key))); }catch(_){}
-          }
+      const req = s.openCursor();
+      req.onsuccess = () => {
+        const cur = req.result;
+        if(cur){
+          const k = cur.key;
+          if(k >= startKey && k <= endKey) out.push(cur.value);
+          cur.continue();
+        }else{
+          res(out);
         }
-      }
-      return out;
+      };
+      req.onerror = () => rej(req.error);
+    }));
+  }
+
+  async function getAll(){
+    return tx(STORE_DAYS, 'readonly', (s) => new Promise((res, rej) => {
+      const req = s.getAll();
+      req.onsuccess = () => res(req.result || []);
+      req.onerror = () => rej(req.error);
+    }));
+  }
+
+  async function getSetting(key, fallback=null){
+    return tx(STORE_SETTINGS, 'readonly', (s) => new Promise((res, rej) => {
+      const req = s.get(key);
+      req.onsuccess = () => res(req.result ? req.result.value : fallback);
+      req.onerror = () => rej(req.error);
+    }));
+  }
+
+  async function setSetting(key, value){
+    return tx(STORE_SETTINGS, 'readwrite', (s) => new Promise((res, rej) => {
+      const req = s.put({key, value});
+      req.onsuccess = () => res(true);
+      req.onerror = () => rej(req.error);
+    }));
+  }
+
+  async function deleteSetting(key){
+    return tx(STORE_SETTINGS, 'readwrite', (s) => new Promise((res, rej) => {
+      const req = s.delete(key);
+      req.onsuccess = () => res(true);
+      req.onerror = () => rej(req.error);
+    }));
+  }
+
+  async function cleanupBefore2025(){
+    const cutoff = '2025-01-01';
+    // delete day records before cutoff
+    await tx(STORE_DAYS, 'readwrite', (s) => new Promise((res, rej) => {
+      const req = s.openCursor();
+      req.onsuccess = () => {
+        const cur = req.result;
+        if(cur){
+          if(cur.key < cutoff) cur.delete();
+          cur.continue();
+        }else res(true);
+      };
+      req.onerror = () => rej(req.error);
+    }));
+    // remove yearStartSaldo for years < 2025
+    const keysToDelete = [];
+    await tx(STORE_SETTINGS, 'readonly', (s) => new Promise((res, rej) => {
+      const req = s.openCursor();
+      req.onsuccess = () => {
+        const cur = req.result;
+        if(cur){
+          const k = cur.key;
+          if(typeof k === 'string' && k.startsWith('yearStartSaldo_')){
+            const yr = parseInt(k.slice('yearStartSaldo_'.length), 10);
+            if(Number.isFinite(yr) && yr < 2025) keysToDelete.push(k);
+          }
+          cur.continue();
+        }else res(true);
+      };
+      req.onerror = () => rej(req.error);
+    }));
+    for(const k of keysToDelete){
+      await deleteSetting(k);
     }
   }
 
-
-  async function deleteDaysBefore(cutoffDateStr){
-    // Deletes all day records with date < cutoffDateStr
-    try{
-      const db = await openDB();
-      await new Promise((resolve, reject)=>{
-        const tx = db.transaction('days','readwrite');
-        const store = tx.objectStore('days');
-        const req = store.openCursor();
-        req.onsuccess = ()=>{
-          const cur = req.result;
-          if(cur){
-            const k = cur.key;
-            if(k < cutoffDateStr){
-              cur.delete();
-            }
-            cur.continue();
-          }else{
-            resolve();
-          }
-        };
-        req.onerror = ()=> reject(req.error);
-      });
-    }catch(e){
-      // localStorage fallback
-      const keys = [];
-      for(let i=0;i<localStorage.length;i++){
-        const key = localStorage.key(i);
-        if(key && key.startsWith('az_day_')){
-          const date = key.substring('az_day_'.length);
-          if(date < cutoffDateStr) keys.push(key);
-        }
-      }
-      keys.forEach(k=>localStorage.removeItem(k));
-    }
-  }
-
-  // Expose
-  window.AZ_DB = {
-    getSettings, setSettings,
-    getDay, setDay, deleteDay,
-    getDaysInRange,
-    deleteDaysBefore,
+  window.AZDB = {
+    openDB,
+    getDay,
+    setDay,
+    deleteDay,
+    getRange,
+    getAll,
+    getSetting,
+    setSetting,
+    deleteSetting,
+    cleanupBefore2025
   };
 })();
