@@ -464,7 +464,53 @@
       ].join(";"));
     }
     return lines.join("\n");
+  
+  // Mobile/iOS-friendly CSV: comma delimiter + dot decimals (so iOS/WhatsApp preview shows a real table)
+  function csvEscape(val, delim){
+    const s = String(val==null ? "" : val);
+    if(s.includes('"') || s.includes('\n') || s.includes('\r') || s.includes(delim)){
+      return '"' + s.replace(/"/g,'""') + '"';
+    }
+    return s;
   }
+
+  function normalizeDecimalForMobile(s){
+    // Convert German decimal comma to dot (e.g. "8,50" -> "8.50")
+    const t = String(s==null ? "" : s);
+    // Only touch typical numeric values
+    if(/^[-+]?\d{1,3}(?:\.\d{3})*(?:,\d+)?$/.test(t) || /^[-+]?\d+(?:,\d+)?$/.test(t)){
+      return t.replace(/\./g,'').replace(',', '.');
+    }
+    return t;
+  }
+
+  function buildCsvMobile(rows){
+    const delim = ",";
+    const header = ["Datum","Wochentag","Typ","Start","Ende","Pause_h","Soll_h","Ist_h","Diff_h","Ort","Notiz"].join(delim);
+    const lines = [header];
+    for(const r of rows){
+      const pause = normalizeDecimalForMobile(r.pause_h);
+      const soll  = normalizeDecimalForMobile(r.soll_h);
+      const ist   = normalizeDecimalForMobile(r.ist_h);
+      const diff  = normalizeDecimalForMobile(r.diff_h);
+      lines.push([
+        csvEscape(r.datum, delim),
+        csvEscape(r.wochentag, delim),
+        csvEscape(r.typ, delim),
+        csvEscape(r.start||"", delim),
+        csvEscape(r.ende||"", delim),
+        csvEscape(pause, delim),
+        csvEscape(soll, delim),
+        csvEscape(ist, delim),
+        csvEscape(diff, delim),
+        csvEscape((r.ort||""), delim),
+        csvEscape((r.notiz||""), delim)
+      ].join(delim));
+    }
+    return lines.join("\n");
+  }
+
+}
 
   function escapePdfText(s){
     return String(s||"").replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)');
@@ -555,6 +601,7 @@
     parseGermanNumber,
     parseCsv,
     buildCsv,
+    buildCsvMobile,
     downloadText,
     downloadBlob,
     createSimplePdf

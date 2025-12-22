@@ -1,4 +1,8 @@
 
+## 1.5.6.1 (20251222-203506)
+- iPhone/WhatsApp CSV: Export nutzt auf iOS automatisch Komma-Trenner + Punkt-Dezimal, damit die Vorschau als Tabelle erscheint.
+- PDF: Tagesstunden werden pro Zeile mit ausgegeben.
+
 ## 1.5.6 (20251222-182127)
 - Fix: Dezember 'S. Vormonat' / Saldo bleibt korrekt, auch wenn Okt/Nov nur per Monats-CSV vorhanden sind.
 - Fix: ServiceWorker Cache-Version aktualisiert (Updates werden zuverlässig geladen).

@@ -1016,6 +1016,20 @@
     return lines;
   }
 
+  function isIOSDevice(){
+    try{
+      const ua = navigator.userAgent || "";
+      const isIOS = /iPad|iPhone|iPod/.test(ua);
+      // iPadOS reports as MacIntel with touch points
+      const isIPadOS = (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      return isIOS || isIPadOS;
+    }catch(e){
+      return false;
+    }
+  }
+
+
+
   async function exportCsvMonth(){
     const y = current.year, m = current.month;
     const startKey = toKey(y,m,1);
@@ -1023,7 +1037,8 @@
     const rows = await buildRowsForRange(startKey, endKey);
     const exportLabel = `Monat ${MONTHS[m-1]} ${y}`;
     const meta = buildExportMetaLines(exportLabel).join('\n');
-    const csv = meta + "\n" + AZExport.buildCsv(rows);
+    const body = (isIOSDevice() ? AZExport.buildCsvMobile(rows) : AZExport.buildCsv(rows));
+    const csv = meta + "\n" + body;
     AZExport.downloadText(csv, `${settings.person||'Arbeitszeit'}_${settings.company||'Firma'}_Monat_${y}-${pad2(m)}.csv`, 'text/csv;charset=utf-8');
     toast("CSV Monat exportiert");
   }
@@ -1035,7 +1050,8 @@
     const rows = await buildRowsForRange(startKey, endKey);
     const exportLabel = `Jahr ${y}`;
     const meta = buildExportMetaLines(exportLabel).join('\n');
-    const csv = meta + "\n" + AZExport.buildCsv(rows);
+    const body = (isIOSDevice() ? AZExport.buildCsvMobile(rows) : AZExport.buildCsv(rows));
+    const csv = meta + "\n" + body;
     AZExport.downloadText(csv, `${settings.person||'Arbeitszeit'}_${settings.company||'Firma'}_Jahr_${y}.csv`, 'text/csv;charset=utf-8');
     toast("CSV Jahr exportiert");
   }
@@ -1053,7 +1069,7 @@
       const pause = (r.typ === 'Arbeitszeit') ? ` | Pause ${r.pause_h} h` : '';
       const ort = r.ort ? ` | ${r.ort}` : '';
       const notiz = r.notiz ? ` | ${r.notiz}` : '';
-      return `${r.datum}  ${r.wochentag}  | ${r.typ} | ${time}${pause}${ort}${notiz}`;
+      return `${r.datum}  ${r.wochentag}  | ${r.typ} | ${time}${pause} | ${r.ist_h} h${ort}${notiz}`;
     });
     const pdf = AZExport.createSimplePdf(title, subtitle, lines);
     AZExport.downloadBlob(pdf, `${settings.person||'Arbeitszeit'}_${settings.company||'Firma'}_${y}-${pad2(m)}.pdf`);
@@ -1073,7 +1089,7 @@
       const pause = (r.typ === 'Arbeitszeit') ? ` | Pause ${r.pause_h} h` : '';
       const ort = r.ort ? ` | ${r.ort}` : '';
       const notiz = r.notiz ? ` | ${r.notiz}` : '';
-      return `${r.datum}  ${r.wochentag}  | ${r.typ} | ${time}${pause}${ort}${notiz}`;
+      return `${r.datum}  ${r.wochentag}  | ${r.typ} | ${time}${pause} | ${r.ist_h} h${ort}${notiz}`;
     });
     const pdf = AZExport.createSimplePdf(title, subtitle, lines);
     AZExport.downloadBlob(pdf, `${settings.person||'Arbeitszeit'}_${settings.company||'Firma'}_${y}.pdf`);
