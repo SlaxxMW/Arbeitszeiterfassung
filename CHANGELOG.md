@@ -1,4 +1,14 @@
+
+## 1.5.6 (20251222-182127)
+- Fix: Dezember 'S. Vormonat' / Saldo bleibt korrekt, auch wenn Okt/Nov nur per Monats-CSV vorhanden sind.
+- Fix: ServiceWorker Cache-Version aktualisiert (Updates werden zuverlässig geladen).
 # Changelog
+
+## v1.5.5 (20251222-172134)
+- Fix: "S. Vormonat"/Saldo explodiert nicht mehr im Dezember – Monate ohne echte Tagesdaten werden bei der Saldo-Kette ignoriert (kein -8h/Tag für Jan–Sep, wenn du erst ab Okt erfasst)
+- Fix: Jahresübersicht nutzt ebenfalls nur Monate mit echten Tagesdaten (keine riesigen negativen Werte für nicht erfasste Monate)
+- CSV Import UX: Nach Daily-CSV Import springt die Ansicht automatisch in den importierten Monat (damit es nicht "leer" wirkt)
+- Export: Pause wird in CSV nur bei Arbeitszeit ausgegeben (bei Urlaub/Krank/Feiertag/Ruhetag leer)
 
 ## v1.5.4 (20251222-152900)
 - Fix: Monatswerte (Soll/Ist/Diff/Saldo) werden wieder tagesaktuell aus den Tages-Einträgen berechnet (Import-Werte nur noch Fallback, wenn der Monat keine Tagesdaten hat)

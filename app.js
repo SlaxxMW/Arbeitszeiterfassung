@@ -290,6 +290,16 @@
 
     // compute carry within year
     let startSaldo = await calcCarryToMonth(current.year, current.month);
+
+    // Wenn Monats-/Jahres-CSV Werte vorhanden sind (Okt/Nov), soll der "S. Vormonat"
+    // auch im Dezember (mit Tagesdaten) auf dieser Basis weiterlaufen – sonst entstehen
+    // riesige Negativsalden durch angenommene leere Monate.
+    if(settings.useYearSummaryMonthly){
+      const ysCarry = await getYearSummary(current.year);
+      if(hasImportedCarryBaseline(ysCarry, current.month)){
+        startSaldo = deriveImportedCarry(ysCarry, current.month);
+      }
+    }
     let sumSoll=0, sumIst=0, sumDiff=0;
 
     // build list (alle Tage + Inline-Editor im Listeneintrag)
@@ -589,6 +599,30 @@
     try{ return JSON.parse(raw); }catch(e){ return null; }
   }
 
+  // ---- Data presence helpers (verhindert riesige negative Salden für Monate ohne echte Einträge) ----
+  const _firstDataMonthCache = new Map();
+  function invalidateYearCache(year){
+    _firstDataMonthCache.delete(Number(year));
+  }
+
+  async function getFirstDataMonth(year){
+    const y = Number(year);
+    if(_firstDataMonthCache.has(y)) return _firstDataMonthCache.get(y);
+    const start = toKey(y, 1, 1);
+    const end = toKey(y, 12, 31);
+    const all = await AZDB.getRange(start, end);
+    let minMonth = null;
+    for(const r of all){
+      if(!r || !r.date) continue;
+      const mm = parseInt(String(r.date).slice(5,7), 10);
+      if(Number.isFinite(mm) && mm >= 1 && mm <= 12){
+        if(minMonth == null || mm < minMonth) minMonth = mm;
+      }
+    }
+    _firstDataMonthCache.set(y, minMonth);
+    return minMonth;
+  }
+
   function findImportedMonth(ys, month){
     if(!ys || !Array.isArray(ys.months)) return null;
     // try by numeric month
@@ -612,23 +646,44 @@
     return 0;
   }
 
-async function calcCarryToMonth(year, month){
+  function hasImportedCarryBaseline(ys, month){
+    if(!ys || !Array.isArray(ys.months)) return false;
+    const m = findImportedMonth(ys, month);
+    if(m && typeof m.carry === 'number') return true;
+    if(month === 1 && ys.yearStartSaldo != null) return true;
+    if(month > 1){
+      const prev = findImportedMonth(ys, month-1);
+      if(prev && prev.saldo != null) return true;
+    }
+    return false;
+  }
+
+
+  async function calcCarryToMonth(year, month){
     const startSaldoYear = await getYearStartSaldo(year);
     if(month <= 1) return startSaldoYear;
-    // sum diffs of months 1..month-1
+
+    // Nur ab dem ersten Monat mit echten Tagesdaten rechnen.
+    // Dadurch werden Monate, die nie erfasst wurden (z.B. Jan–Sep), NICHT als -8h/Tag gewertet.
+    const firstM = await getFirstDataMonth(year);
+    if(!firstM || firstM >= month) return startSaldoYear;
+
     let carry = startSaldoYear;
-    for(let m=1; m<month; m++){
-      const {diff} = await calcMonthDiff(year, m);
+    for(let m=firstM; m<month; m++){
+      const {diff} = await calcMonthDiff(year, m, { ignoreEmpty: true });
       carry += diff;
     }
     return carry;
   }
 
-  async function calcMonthDiff(year, month){
+  async function calcMonthDiff(year, month, opts){
     const dim = daysInMonth(year, month);
     const startKey = toKey(year, month, 1);
     const endKey = toKey(year, month, dim);
     const stored = await AZDB.getRange(startKey, endKey);
+    if(opts && opts.ignoreEmpty && stored.length === 0){
+      return {soll:0, ist:0, diff:0, empty:true};
+    }
     const map = new Map(stored.map(r=>[r.date, r]));
     let diff=0, soll=0, ist=0;
     for(let d=1; d<=dim; d++){
@@ -643,8 +698,10 @@ async function calcCarryToMonth(year, month){
   async function calcYearToMonth(year, month){
     const m = Math.max(1, Math.min(12, Number(month)||1));
     let soll=0, ist=0, diff=0;
-    for(let mm=1; mm<=m; mm++){
-      const r = await calcMonthDiff(year, mm);
+    const firstM = await getFirstDataMonth(year);
+    const startM = firstM ? Math.max(1, Math.min(12, firstM)) : 1;
+    for(let mm=startM; mm<=m; mm++){
+      const r = await calcMonthDiff(year, mm, { ignoreEmpty: true });
       soll += r.soll; ist += r.ist; diff += r.diff;
     }
     return {soll, ist, diff};
@@ -734,6 +791,8 @@ async function calcCarryToMonth(year, month){
     if(!Number.isFinite(rec.breakH) || rec.breakH < 0) rec.breakH = 0;
     if(t !== 'work'){ rec.start=''; rec.end=''; rec.breakH = 0; }
     await AZDB.setDay(rec);
+    // Cache für ersten Daten-Monat invalidieren (wichtig)
+    try{ invalidateYearCache(parseInt(String(key).slice(0,4),10)); }catch(e){ /* ignore */ }
   }
 
 
@@ -784,7 +843,7 @@ async function calcCarryToMonth(year, month){
         }
       }
 
-      const {soll, ist, diff} = await calcMonthDiff(year, m);
+      const {soll, ist, diff} = await calcMonthDiff(year, m, { ignoreEmpty: true });
       ySoll += soll; yIst += ist; yDiff += diff;
 
       const carry = await calcCarryToMonth(year, m);
@@ -925,7 +984,8 @@ async function calcCarryToMonth(year, month){
           typ: typeLabel(rec.type, key),
           start: rec.start||"",
           ende: rec.end||"",
-          pause_h: AZExport.formatNum(rec.type==='work' ? (rec.breakH ?? 0.5) : 0),
+          // Pause nur bei echter Arbeitszeit exportieren
+          pause_h: (rec.type==='work') ? AZExport.formatNum((rec.breakH ?? 0.5)) : "",
           soll_h: AZExport.formatNum(h.soll),
           ist_h: AZExport.formatNum(h.ist),
           diff_h: AZExport.formatNum(h.diff),
@@ -1126,8 +1186,16 @@ async function calcCarryToMonth(year, month){
 
     // meta
     const years = [...new Set(rows.map(r=>parseInt(r.date.slice(0,4),10)))].sort((a,b)=>a-b);
+    const yms = [...new Set(rows.map(r=>(r.date||'').slice(0,7)).filter(Boolean))].sort();
     pendingImport = { kind:'daily', rows, years, fileName: file.name };
-    $importMeta.textContent = `Zeilen: ${rows.length} | Jahre: ${years.join(", ")} | Datei: ${file.name}`;
+    if(yms.length === 1){
+      const yy = parseInt(yms[0].slice(0,4),10);
+      const mm = parseInt(yms[0].slice(5,7),10);
+      const mName = (Number.isFinite(mm) && mm>=1 && mm<=12) ? MONTHS[mm-1] : yms[0];
+      $importMeta.textContent = `Monat: ${mName} ${Number.isFinite(yy)?yy:''} | Zeilen: ${rows.length} | Datei: ${file.name}`;
+    }else{
+      $importMeta.textContent = `Zeilen: ${rows.length} | Jahre: ${years.join(", ")} | Datei: ${file.name}`;
+    }
     $importPreview.textContent = buildImportPreview(rows.slice(0, 25));
     $importMode.innerHTML = `
       <option value="merge">Zusammenführen (empfohlen)</option>
@@ -1231,6 +1299,8 @@ async function calcCarryToMonth(year, month){
       pendingImport = null;
       $importModal.classList.add('hidden');
       toast(`Jahres-CSV übernommen (${y})`);
+      try{ invalidateYearCache(y); }catch(e){ /* ignore */ }
+      try{ current.year = y; if(current.month < 1 || current.month > 12) current.month = 1; openDateKey = null; }catch(e){ /* ignore */ }
       await loadSettings();
       await renderMonth();
       return;
@@ -1298,6 +1368,8 @@ async function calcCarryToMonth(year, month){
       pendingImport = null;
       $importModal.classList.add('hidden');
       toast(`Monats-CSV übernommen (${MONTHS[m-1]} ${y})`);
+      try{ invalidateYearCache(y); }catch(e){ /* ignore */ }
+      try{ current.year = y; current.month = m; openDateKey = null; }catch(e){ /* ignore */ }
       await loadSettings();
       await renderMonth();
       return;
@@ -1346,6 +1418,23 @@ async function calcCarryToMonth(year, month){
     pendingImport = null;
     $importModal.classList.add('hidden');
     toast(`Import OK (${written} Tage)`);
+    try{
+      if(Array.isArray(years)) for(const y of years) invalidateYearCache(y);
+    }catch(e){ /* ignore */ }
+    // Nach Import automatisch in den importierten Monat springen (damit man sofort etwas sieht)
+    try{
+      if(Array.isArray(rows) && rows.length){
+        const dates = rows.map(r=>r.date).filter(Boolean).sort();
+        const dk = dates[0];
+        const yy = parseInt(String(dk).slice(0,4),10);
+        const mm = parseInt(String(dk).slice(5,7),10);
+        if(Number.isFinite(yy) && yy >= APP_MIN_YEAR && Number.isFinite(mm) && mm>=1 && mm<=12){
+          current.year = yy;
+          current.month = mm;
+          openDateKey = null;
+        }
+      }
+    }catch(e){ /* ignore */ }
     await renderMonth();
   }
 
