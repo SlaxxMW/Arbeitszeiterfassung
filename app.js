@@ -290,16 +290,6 @@
 
     // compute carry within year
     let startSaldo = await calcCarryToMonth(current.year, current.month);
-
-    // Wenn Monats-/Jahres-CSV Werte vorhanden sind (Okt/Nov), soll der "S. Vormonat"
-    // auch im Dezember (mit Tagesdaten) auf dieser Basis weiterlaufen – sonst entstehen
-    // riesige Negativsalden durch angenommene leere Monate.
-    if(settings.useYearSummaryMonthly){
-      const ysCarry = await getYearSummary(current.year);
-      if(hasImportedCarryBaseline(ysCarry, current.month)){
-        startSaldo = deriveImportedCarry(ysCarry, current.month);
-      }
-    }
     let sumSoll=0, sumIst=0, sumDiff=0;
 
     // build list (alle Tage + Inline-Editor im Listeneintrag)
@@ -645,19 +635,6 @@
     if(prev && prev.saldo != null) return Number(prev.saldo || 0) || 0;
     return 0;
   }
-
-  function hasImportedCarryBaseline(ys, month){
-    if(!ys || !Array.isArray(ys.months)) return false;
-    const m = findImportedMonth(ys, month);
-    if(m && typeof m.carry === 'number') return true;
-    if(month === 1 && ys.yearStartSaldo != null) return true;
-    if(month > 1){
-      const prev = findImportedMonth(ys, month-1);
-      if(prev && prev.saldo != null) return true;
-    }
-    return false;
-  }
-
 
   async function calcCarryToMonth(year, month){
     const startSaldoYear = await getYearStartSaldo(year);
@@ -1040,43 +1017,6 @@
     toast("CSV Jahr exportiert");
   }
 
-  async function exportCsvMonthMobile(){
-    const y = current.year, m = current.month;
-    const startKey = toKey(y,m,1);
-    const endKey = toKey(y,m,daysInMonth(y,m));
-    const rows = await buildRowsForRange(startKey, endKey);
-    const exportLabel = `Monat ${MONTHS[m-1]} ${y}`;
-    const todayStr = new Date().toLocaleDateString('de-DE');
-    const metaPairs = [
-      {k:'Firma', v: settings.company||'Firma'},
-      {k:'Name', v: settings.person||''},
-      {k:'Export-Datum', v: todayStr},
-      {k:'Export-Typ', v: exportLabel}
-    ];
-    const csv = AZExport.buildCsvComma(rows, metaPairs);
-    AZExport.downloadText(csv, `${settings.person||'Arbeitszeit'}_${settings.company||'Firma'}_Monat_${y}-${pad2(m)}_HANDY.csv`, 'text/csv;charset=utf-8');
-    toast("Handy-CSV Monat exportiert");
-  }
-
-  async function exportCsvYearMobile(){
-    const y = current.year;
-    const startKey = toKey(y,1,1);
-    const endKey = toKey(y,12,31);
-    const rows = await buildRowsForRange(startKey, endKey);
-    const exportLabel = `Jahr ${y}`;
-    const todayStr = new Date().toLocaleDateString('de-DE');
-    const metaPairs = [
-      {k:'Firma', v: settings.company||'Firma'},
-      {k:'Name', v: settings.person||''},
-      {k:'Export-Datum', v: todayStr},
-      {k:'Export-Typ', v: exportLabel}
-    ];
-    const csv = AZExport.buildCsvComma(rows, metaPairs);
-    AZExport.downloadText(csv, `${settings.person||'Arbeitszeit'}_${settings.company||'Firma'}_Jahr_${y}_HANDY.csv`, 'text/csv;charset=utf-8');
-    toast("Handy-CSV Jahr exportiert");
-  }
-
-
   async function exportPdfMonth(){
     const y = current.year, m = current.month;
     const startKey = toKey(y,m,1);
@@ -1090,9 +1030,7 @@
       const pause = (r.typ === 'Arbeitszeit') ? ` | Pause ${r.pause_h} h` : '';
       const ort = r.ort ? ` | ${r.ort}` : '';
       const notiz = r.notiz ? ` | ${r.notiz}` : '';
-      const istNum = (typeof r.ist_h === 'number') ? r.ist_h : (AZExport.parseGermanNumber(r.ist_h) ?? 0);
-      const stunden = ` | ${AZExport.formatHours(istNum)}`;
-      return `${r.datum}  ${r.wochentag}  | ${r.typ} | ${time}${pause}${stunden}${ort}${notiz}`;
+      return `${r.datum}  ${r.wochentag}  | ${r.typ} | ${time}${pause}${ort}${notiz}`;
     });
     const pdf = AZExport.createSimplePdf(title, subtitle, lines);
     AZExport.downloadBlob(pdf, `${settings.person||'Arbeitszeit'}_${settings.company||'Firma'}_${y}-${pad2(m)}.pdf`);
@@ -1112,9 +1050,7 @@
       const pause = (r.typ === 'Arbeitszeit') ? ` | Pause ${r.pause_h} h` : '';
       const ort = r.ort ? ` | ${r.ort}` : '';
       const notiz = r.notiz ? ` | ${r.notiz}` : '';
-      const istNum = (typeof r.ist_h === 'number') ? r.ist_h : (AZExport.parseGermanNumber(r.ist_h) ?? 0);
-      const stunden = ` | ${AZExport.formatHours(istNum)}`;
-      return `${r.datum}  ${r.wochentag}  | ${r.typ} | ${time}${pause}${stunden}${ort}${notiz}`;
+      return `${r.datum}  ${r.wochentag}  | ${r.typ} | ${time}${pause}${ort}${notiz}`;
     });
     const pdf = AZExport.createSimplePdf(title, subtitle, lines);
     AZExport.downloadBlob(pdf, `${settings.person||'Arbeitszeit'}_${settings.company||'Firma'}_${y}.pdf`);
@@ -1620,8 +1556,6 @@
     // export
     els('btnExportCsvMonth').addEventListener('click', exportCsvMonth);
     els('btnExportCsvYear').addEventListener('click', exportCsvYear);
-    els('btnExportCsvMonthMobile').addEventListener('click', exportCsvMonthMobile);
-    els('btnExportCsvYearMobile').addEventListener('click', exportCsvYearMobile);
     els('btnExportPdfMonth').addEventListener('click', exportPdfMonth);
     els('btnExportPdfYear').addEventListener('click', exportPdfYear);
     els('btnBackupJson').addEventListener('click', backupJson);

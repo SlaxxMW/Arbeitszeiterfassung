@@ -1,7 +1,3 @@
-
-## 1.5.6 (20251222-182127)
-- Fix: Dezember 'S. Vormonat' / Saldo bleibt korrekt, auch wenn Okt/Nov nur per Monats-CSV vorhanden sind.
-- Fix: ServiceWorker Cache-Version aktualisiert (Updates werden zuverlässig geladen).
 # Changelog
 
 ## v1.5.5 (20251222-172134)
