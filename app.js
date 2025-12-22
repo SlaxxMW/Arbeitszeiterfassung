@@ -1543,7 +1543,7 @@
 
   function registerSW(){
     if(!('serviceWorker' in navigator)) return;
-    navigator.serviceWorker.register('./sw.js', {scope:'./'}).then((reg)=>{
+    navigator.serviceWorker.register('./sw.js?v=' + (window.__AZ_VERSION || '1.5.9') + '&b=' + (window.__AZ_BUILD || Date.now()), {scope:'./'}).then((reg)=>{
       // listen for updates
       reg.addEventListener('updatefound', ()=>{
         const nw = reg.installing;

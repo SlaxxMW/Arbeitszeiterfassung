@@ -1,5 +1,5 @@
 /* sw.js - Service Worker for offline use + update banner support */
-const APP_VERSION = '1.5.8';
+const APP_VERSION = '1.5.9';
 const CACHE_NAME = `az-pwa-${APP_VERSION}`;
 
 const PRECACHE_URLS = [
@@ -49,7 +49,7 @@ self.addEventListener('fetch', (event) => {
   if(req.mode === 'navigate'){
     event.respondWith((async ()=>{
       const cache = await caches.open(CACHE_NAME);
-      const cached = await cache.match('./index.html', {ignoreSearch:true});
+      const cached = await cache.match('./index.html');
       const fetchPromise = fetch(req).then(async (resp)=>{
         // update cache with fresh index
         if(resp && resp.ok) await cache.put('./index.html', resp.clone());
@@ -64,7 +64,7 @@ self.addEventListener('fetch', (event) => {
   // Static assets -> cache-first, then network, then cache fallback
   event.respondWith((async ()=>{
     const cache = await caches.open(CACHE_NAME);
-    const cached = await cache.match(req, {ignoreSearch:true});
+    const cached = await cache.match(req);
     if(cached) return cached;
     try{
       const resp = await fetch(req);
@@ -75,7 +75,7 @@ self.addEventListener('fetch', (event) => {
       return resp;
     }catch(e){
       // last resort: try matching by pathname
-      const fallback = await cache.match(url.pathname, {ignoreSearch:true});
+      const fallback = await cache.match(url.pathname);
       return fallback || Response.error();
     }
   })());

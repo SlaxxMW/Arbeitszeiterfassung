@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.5.9 (20251222-194948)
+- Fix: Start-Crash durch Cache-Mix beseitigt: keine ?v-Assets mehr, ServiceWorker cached ohne ignoreSearch und wird mit Cachebuster registriert
+- Export: Handy CSV (WhatsApp/iPhone Vorschau) + PDF zeigt Tagesstunden (Pause nur bei Arbeitszeit)
+
 ## v1.5.8 (20251222-193102)
 - Fix: App startet wieder auch wenn noch eine ältere index.html im Cache liegt (Mobile-Export Buttons crashen nicht mehr beim Start)
 - Fix: ServiceWorker Cache-Version + Resource-Cachebusting aktualisiert (Updates werden zuverlässig geladen)
