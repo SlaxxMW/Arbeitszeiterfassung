@@ -465,3 +465,28 @@ body{
 .day-editor .actions .spacer{
   flex:1;
 }
+
+
+/* --- v1.6.1 mobile fixes (settings + csv import cancel) --- */
+.modal-card{
+  -webkit-overflow-scrolling: touch;
+  max-width: calc(100vw - 28px);
+}
+.modal-body{ overflow-x:hidden; }
+.form-row{ max-width:100%; overflow:hidden; }
+.form-row input[type="file"]{
+  width:100%;
+  max-width:100%;
+  display:block;
+}
+.toggle{ flex-wrap:wrap; }
+
+#importModal .modal-footer{
+  justify-content: space-between;
+  gap:10px;
+}
+
+@media (max-width: 420px){
+  .modal{ padding:10px; }
+  .modal-card{ border-width:2px; }
+}

@@ -85,6 +85,11 @@
         </div>
 
         <div class="form-row">
+          <label>Letztes Backup</label>
+          <div class="small" id="lastBackupInfo">—</div>
+        </div>
+
+        <div class="form-row">
           <label>Bundesland (Feiertage)</label>
           <select id="setState"></select>
         </div>
@@ -176,6 +181,7 @@
         </div>
       </div>
       <div class="modal-footer">
+        <button class="btn btn-light" id="btnCancelImport">Abbrechen</button>
         <button class="btn btn-primary" id="btnConfirmImport">Importieren</button>
       </div>
     </div>

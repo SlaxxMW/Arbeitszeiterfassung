@@ -1,3 +1,8 @@
+## 1.6.1 (2025-12-23)
+- Neu: Einstellungen zeigen "Letztes Backup" (Datum/Uhrzeit).
+- Neu: CSV Import Modal mit "Abbrechen" (zusätzlich zum ✕), zurück zur App ohne festzuhängen.
+- Fix: iPhone/kleine Screens – Settings-Checkboxes + CSV-Import nicht mehr abgeschnitten (Modal max-width + File-Input Shrink + iOS Scroll).
+
 ## 1.6.0 (2025-12-22)
 - Neu: Auto-Backup Erinnerung (1x pro Woche) mit Popup + "Backup jetzt (JSON)".
 - Fix: Einstellungen-Modal mobil ohne horizontales Verschieben (Overflow-X hidden, File-Input max-width, Import-Vorschau wrap).

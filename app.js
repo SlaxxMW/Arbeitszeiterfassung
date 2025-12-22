@@ -48,6 +48,7 @@
   const $setYearStartSaldo = els('setYearStartSaldo');
   const $holidayPreview = els('holidayPreview');
   const $updateInfo = els('updateInfo');
+  const $lastBackupInfo = els('lastBackupInfo');
 
   // Import fields
   const $fileImportCsv = els('fileImportCsv');
@@ -189,6 +190,20 @@
     $setYearStartSaldo.value = ys;
 
     await refreshHolidayPreview();
+
+    // last backup info
+    try{
+      const ts = await AZDB.getSetting(KEY_LAST_BACKUP_AT, 0) || 0;
+      if($lastBackupInfo){
+        if(!ts){
+          $lastBackupInfo.textContent = "— (noch kein Backup)";
+        }else{
+          const d = new Date(ts);
+          $lastBackupInfo.textContent = d.toLocaleString('de-DE', {year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'});
+        }
+      }
+    }catch(_e){ if($lastBackupInfo) $lastBackupInfo.textContent = "—"; }
+
     $settingsModal.classList.remove('hidden');
   }
   function closeSettings(){ $settingsModal.classList.add('hidden'); }
@@ -1503,7 +1518,11 @@ async function exportHandyMonth(){
     await renderMonth();
   }
 
-  function closeImport(){ $importModal.classList.add('hidden'); pendingImport = null; }
+  function closeImport(){
+    $importModal.classList.add('hidden');
+    pendingImport = null;
+    try{ if($fileImportCsv) $fileImportCsv.value = ""; }catch(_e){}
+  }
 
   function openBackupModal(text){
     if(!$backupModal) return;
@@ -1719,6 +1738,8 @@ navigator.serviceWorker.addEventListener('controllerchange', ()=>{
 
     // import modal
     els('btnCloseImport').addEventListener('click', closeImport);
+    const $btnCancelImport = els('btnCancelImport');
+    if($btnCancelImport) $btnCancelImport.addEventListener('click', closeImport);
     els('btnConfirmImport').addEventListener('click', confirmImport);
 
     // live holiday preview in settings
