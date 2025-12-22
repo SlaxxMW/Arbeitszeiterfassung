@@ -1016,20 +1016,6 @@
     return lines;
   }
 
-  function isIOSDevice(){
-    try{
-      const ua = navigator.userAgent || "";
-      const isIOS = /iPad|iPhone|iPod/.test(ua);
-      // iPadOS reports as MacIntel with touch points
-      const isIPadOS = (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      return isIOS || isIPadOS;
-    }catch(e){
-      return false;
-    }
-  }
-
-
-
   async function exportCsvMonth(){
     const y = current.year, m = current.month;
     const startKey = toKey(y,m,1);
@@ -1037,11 +1023,25 @@
     const rows = await buildRowsForRange(startKey, endKey);
     const exportLabel = `Monat ${MONTHS[m-1]} ${y}`;
     const meta = buildExportMetaLines(exportLabel).join('\n');
-    const body = (isIOSDevice() ? AZExport.buildCsvMobile(rows) : AZExport.buildCsv(rows));
-    const csv = meta + "\n" + body;
+    const csv = meta + "\n" + AZExport.buildCsv(rows);
     AZExport.downloadText(csv, `${settings.person||'Arbeitszeit'}_${settings.company||'Firma'}_Monat_${y}-${pad2(m)}.csv`, 'text/csv;charset=utf-8');
     toast("CSV Monat exportiert");
   }
+
+/* === PATCHPOINT: EXPORT_HANDY_MONTH === */
+async function exportHandyMonth(){
+  const y = current.year, m = current.month;
+  const startKey = toKey(y,m,1);
+  const endKey = toKey(y,m,daysInMonth(y,m));
+  const rows = await buildRowsForRange(startKey, endKey);
+  const exportLabel = `Monat ${MONTHS[m-1]} ${y}`;
+  const title = `Arbeitszeiterfassung`;
+  const subtitle = `${settings.company || 'Firma'} • ${settings.person || ''} • Export: ${todayGerman()}`.replace(/\s+•\s+•/g,' •').trim();
+  const metaLines = buildExportMetaLines(exportLabel);
+  const html = AZExport.buildMobileHtmlReport({ title, subtitle, exportLabel, metaLines, rows });
+  AZExport.downloadText(html, `${settings.person||'Arbeitszeit'}_${settings.company||'Firma'}_Monat_${y}-${pad2(m)}.html`, 'text/html;charset=utf-8');
+  toast("Handy-Report Monat exportiert");
+}
 
   async function exportCsvYear(){
     const y = current.year;
@@ -1050,8 +1050,7 @@
     const rows = await buildRowsForRange(startKey, endKey);
     const exportLabel = `Jahr ${y}`;
     const meta = buildExportMetaLines(exportLabel).join('\n');
-    const body = (isIOSDevice() ? AZExport.buildCsvMobile(rows) : AZExport.buildCsv(rows));
-    const csv = meta + "\n" + body;
+    const csv = meta + "\n" + AZExport.buildCsv(rows);
     AZExport.downloadText(csv, `${settings.person||'Arbeitszeit'}_${settings.company||'Firma'}_Jahr_${y}.csv`, 'text/csv;charset=utf-8');
     toast("CSV Jahr exportiert");
   }
@@ -1065,12 +1064,13 @@
     const title = `Arbeitszeiterfassung`;
     const subtitle = `${settings.company || 'Firma'} • ${settings.person||''} • ${exportLabel} • Export: ${todayGerman()}`.replace(/\s+•\s+•/g,' •').trim();
     const lines = rows.map(r=>{
-      const time = (r.start && r.ende) ? `${r.start}-${r.ende}` : '—';
-      const pause = (r.typ === 'Arbeitszeit') ? ` | Pause ${r.pause_h} h` : '';
-      const ort = r.ort ? ` | ${r.ort}` : '';
-      const notiz = r.notiz ? ` | ${r.notiz}` : '';
-      return `${r.datum}  ${r.wochentag}  | ${r.typ} | ${time}${pause} | ${r.ist_h} h${ort}${notiz}`;
-    });
+  const time = (r.start && r.ende) ? `${r.start}-${r.ende}` : '—';
+  const pause = (r.typ === 'Arbeitszeit') ? ` | Pause ${r.pause_h} h` : '';
+  const hours = ` | Ist ${r.ist_h} h | Soll ${r.soll_h} h | Diff ${r.diff_h} h`;
+  const ort = r.ort ? ` | ${r.ort}` : '';
+  const notiz = r.notiz ? ` | ${r.notiz}` : '';
+  return `${r.datum}  ${r.wochentag}  | ${r.typ} | ${time}${pause}${hours}${ort}${notiz}`;
+});
     const pdf = AZExport.createSimplePdf(title, subtitle, lines);
     AZExport.downloadBlob(pdf, `${settings.person||'Arbeitszeit'}_${settings.company||'Firma'}_${y}-${pad2(m)}.pdf`);
     toast("PDF Monat exportiert");
@@ -1085,12 +1085,13 @@
     const title = `Arbeitszeiterfassung`;
     const subtitle = `${settings.company || 'Firma'} • ${settings.person||''} • ${exportLabel} • Export: ${todayGerman()}`.replace(/\s+•\s+•/g,' •').trim();
     const lines = rows.map(r=>{
-      const time = (r.start && r.ende) ? `${r.start}-${r.ende}` : '—';
-      const pause = (r.typ === 'Arbeitszeit') ? ` | Pause ${r.pause_h} h` : '';
-      const ort = r.ort ? ` | ${r.ort}` : '';
-      const notiz = r.notiz ? ` | ${r.notiz}` : '';
-      return `${r.datum}  ${r.wochentag}  | ${r.typ} | ${time}${pause} | ${r.ist_h} h${ort}${notiz}`;
-    });
+  const time = (r.start && r.ende) ? `${r.start}-${r.ende}` : '—';
+  const pause = (r.typ === 'Arbeitszeit') ? ` | Pause ${r.pause_h} h` : '';
+  const hours = ` | Ist ${r.ist_h} h | Soll ${r.soll_h} h | Diff ${r.diff_h} h`;
+  const ort = r.ort ? ` | ${r.ort}` : '';
+  const notiz = r.notiz ? ` | ${r.notiz}` : '';
+  return `${r.datum}  ${r.wochentag}  | ${r.typ} | ${time}${pause}${hours}${ort}${notiz}`;
+});
     const pdf = AZExport.createSimplePdf(title, subtitle, lines);
     AZExport.downloadBlob(pdf, `${settings.person||'Arbeitszeit'}_${settings.company||'Firma'}_${y}.pdf`);
     toast("PDF Jahr exportiert");
@@ -1597,6 +1598,7 @@
     els('btnExportCsvYear').addEventListener('click', exportCsvYear);
     els('btnExportPdfMonth').addEventListener('click', exportPdfMonth);
     els('btnExportPdfYear').addEventListener('click', exportPdfYear);
+    els('btnExportHandyMonth').addEventListener('click', exportHandyMonth);
     els('btnBackupJson').addEventListener('click', backupJson);
     els('btnRestoreJson').addEventListener('click', ()=>els('fileRestoreJson').click());
     els('fileRestoreJson').addEventListener('change', async (e)=>{

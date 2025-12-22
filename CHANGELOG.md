@@ -1,7 +1,7 @@
-
-## 1.5.6.1 (20251222-203506)
-- iPhone/WhatsApp CSV: Export nutzt auf iOS automatisch Komma-Trenner + Punkt-Dezimal, damit die Vorschau als Tabelle erscheint.
-- PDF: Tagesstunden werden pro Zeile mit ausgegeben.
+## 1.5.7 (20251222-220213)
+- Export: Neuer "Handy Monat"-Report als HTML (WhatsApp-/Handy-lesbar: Karten-Ansicht + Tabelle + Summen).
+- Export: PDF Monat/Jahr zeigt jetzt pro Tag zusätzlich Ist/Soll/Diff.
+- Intern: Patchpoints/Marker ergänzt (Updates künftig schneller & sicherer).
 
 ## 1.5.6 (20251222-182127)
 - Fix: Dezember 'S. Vormonat' / Saldo bleibt korrekt, auch wenn Okt/Nov nur per Monats-CSV vorhanden sind.

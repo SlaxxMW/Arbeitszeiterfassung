@@ -464,55 +464,254 @@
       ].join(";"));
     }
     return lines.join("\n");
-  
-  // Mobile/iOS-friendly CSV: comma delimiter + dot decimals (so iOS/WhatsApp preview shows a real table)
-  function csvEscape(val, delim){
-    const s = String(val==null ? "" : val);
-    if(s.includes('"') || s.includes('\n') || s.includes('\r') || s.includes(delim)){
-      return '"' + s.replace(/"/g,'""') + '"';
-    }
-    return s;
   }
 
-  function normalizeDecimalForMobile(s){
-    // Convert German decimal comma to dot (e.g. "8,50" -> "8.50")
-    const t = String(s==null ? "" : s);
-    // Only touch typical numeric values
-    if(/^[-+]?\d{1,3}(?:\.\d{3})*(?:,\d+)?$/.test(t) || /^[-+]?\d+(?:,\d+)?$/.test(t)){
-      return t.replace(/\./g,'').replace(',', '.');
-    }
-    return t;
+    /* === PATCHPOINT: BUILD_MOBILE_HTML_REPORT === */
+  function escapeHtml(s){
+    return String(s ?? '')
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;')
+      .replace(/'/g,'&#39;');
   }
 
-  function buildCsvMobile(rows){
-    const delim = ",";
-    const header = ["Datum","Wochentag","Typ","Start","Ende","Pause_h","Soll_h","Ist_h","Diff_h","Ort","Notiz"].join(delim);
-    const lines = [header];
-    for(const r of rows){
-      const pause = normalizeDecimalForMobile(r.pause_h);
-      const soll  = normalizeDecimalForMobile(r.soll_h);
-      const ist   = normalizeDecimalForMobile(r.ist_h);
-      const diff  = normalizeDecimalForMobile(r.diff_h);
-      lines.push([
-        csvEscape(r.datum, delim),
-        csvEscape(r.wochentag, delim),
-        csvEscape(r.typ, delim),
-        csvEscape(r.start||"", delim),
-        csvEscape(r.ende||"", delim),
-        csvEscape(pause, delim),
-        csvEscape(soll, delim),
-        csvEscape(ist, delim),
-        csvEscape(diff, delim),
-        csvEscape((r.ort||""), delim),
-        csvEscape((r.notiz||""), delim)
-      ].join(delim));
+  function buildMobileHtmlReport({ title, subtitle, exportLabel, metaLines, rows }){
+    const meta = Array.isArray(metaLines) ? metaLines : [];
+    const sumSoll = rows.reduce((a,r)=>a + (parseGermanNumber(r.soll_h)||0), 0);
+    const sumIst  = rows.reduce((a,r)=>a + (parseGermanNumber(r.ist_h)||0), 0);
+    const sumDiff = rows.reduce((a,r)=>a + (parseGermanNumber(r.diff_h)||0), 0);
+
+    const metaBlock = meta.length ? `<pre class="meta">${escapeHtml(meta.join('\n'))}</pre>` : '';
+
+    const tableRows = rows.map(r=>`
+      <tr>
+        <td class="c-date">${escapeHtml(r.datum)}</td>
+        <td class="c-day">${escapeHtml(r.wochentag)}</td>
+        <td class="c-type">${escapeHtml(r.typ)}</td>
+        <td class="c-time">${escapeHtml(r.start||'')}</td>
+        <td class="c-time">${escapeHtml(r.ende||'')}</td>
+        <td class="c-num">${escapeHtml(r.pause_h||'')}</td>
+        <td class="c-num">${escapeHtml(r.soll_h||'')}</td>
+        <td class="c-num strong">${escapeHtml(r.ist_h||'')}</td>
+        <td class="c-num ${parseGermanNumber(r.diff_h)<0?'neg':'pos'}">${escapeHtml(r.diff_h||'')}</td>
+        <td class="c-text">${escapeHtml(r.ort||'')}</td>
+        <td class="c-text">${escapeHtml(r.notiz||'')}</td>
+      </tr>
+    `).join('');
+
+    const cards = rows.map(r=>{
+      const time = (r.start && r.ende) ? `${r.start}–${r.ende}` : '—';
+      const pause = (r.typ === 'Arbeitszeit' && r.pause_h) ? ` • Pause ${r.pause_h} h` : '';
+      const ort = r.ort ? ` • ${r.ort}` : '';
+      const note = r.notiz ? `<div class="note">${escapeHtml(r.notiz)}</div>` : '';
+      const diffNum = parseGermanNumber(r.diff_h);
+      const diffClass = diffNum < 0 ? 'neg' : 'pos';
+      return `
+        <div class="card">
+          <div class="card-top">
+            <div class="date">${escapeHtml(r.datum)} <span class="day">${escapeHtml(r.wochentag)}</span></div>
+            <div class="type">${escapeHtml(r.typ)}</div>
+          </div>
+          <div class="line">${escapeHtml(time)}${escapeHtml(pause)}${escapeHtml(ort)}</div>
+          <div class="grid">
+            <div><span class="k">Ist</span><span class="v strong">${escapeHtml(r.ist_h)} h</span></div>
+            <div><span class="k">Soll</span><span class="v">${escapeHtml(r.soll_h)} h</span></div>
+            <div><span class="k">Diff</span><span class="v ${diffClass}">${escapeHtml(r.diff_h)} h</span></div>
+          </div>
+          ${note}
+        </div>
+      `;
+    }).join('');
+
+    const html = `<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(title || 'Arbeitszeiterfassung')} – ${escapeHtml(exportLabel || '')}</title>
+  <style>
+    :root{
+      --bg:#0b1220;
+      --card:#111a2e;
+      --muted:#93a4c7;
+      --text:#e8eefc;
+      --brand:#2e7d32;
+      --line:rgba(255,255,255,.08);
+      --neg:#ff6b6b;
+      --pos:#54d38a;
     }
-    return lines.join("\n");
+    *{ box-sizing:border-box; }
+    body{ margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:var(--bg); color:var(--text); }
+    .wrap{ max-width:980px; margin:0 auto; padding:14px; }
+    .head{
+      background: linear-gradient(135deg, rgba(46,125,50,.95), rgba(46,125,50,.55));
+      border:1px solid rgba(255,255,255,.15);
+      border-radius:16px;
+      padding:14px 14px 12px;
+      box-shadow: 0 10px 28px rgba(0,0,0,.25);
+    }
+    .title{ font-size:18px; font-weight:800; letter-spacing:.2px; }
+    .sub{ margin-top:4px; color:rgba(255,255,255,.92); font-size:13px; line-height:1.25; }
+    .label{ margin-top:10px; font-size:13px; color:rgba(255,255,255,.9); }
+    .totals{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap:10px;
+    }
+    .tbox{
+      background: rgba(17,26,46,.65);
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius:14px;
+      padding:10px 10px;
+    }
+    .tbox .k{ color: rgba(255,255,255,.85); font-size:12px; }
+    .tbox .v{ font-size:18px; font-weight:900; margin-top:2px; }
+    .meta{
+      margin:12px 0 0;
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px dashed rgba(255,255,255,.22);
+      background: rgba(17,26,46,.45);
+      color: var(--muted);
+      white-space: pre-wrap;
+      font-size:12px;
+      line-height:1.3;
+    }
+
+    /* desktop table */
+    .table-wrap{
+      margin-top:14px;
+      background: rgba(17,26,46,.55);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:16px;
+      overflow:hidden;
+    }
+    table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+    thead th{
+      position: sticky; top:0;
+      background: rgba(17,26,46,.98);
+      border-bottom: 1px solid var(--line);
+      text-align:left;
+      padding:10px 10px;
+      font-weight:800;
+      color: rgba(255,255,255,.92);
+      white-space:nowrap;
+      z-index:2;
+    }
+    tbody td{
+      padding:9px 10px;
+      border-bottom:1px solid var(--line);
+      vertical-align:top;
+    }
+    tbody tr:nth-child(even){ background: rgba(255,255,255,.03); }
+    .c-num{ text-align:right; font-variant-numeric: tabular-nums; white-space:nowrap; }
+    .c-time{ text-align:center; font-variant-numeric: tabular-nums; white-space:nowrap; }
+    .c-date{ white-space:nowrap; }
+    .c-text{ max-width: 260px; }
+    .strong{ font-weight:900; }
+    .neg{ color: var(--neg); font-weight:900; }
+    .pos{ color: var(--pos); font-weight:900; }
+
+    /* phone cards */
+    .cards{ display:none; margin-top:14px; }
+    .card{
+      background: rgba(17,26,46,.65);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:16px;
+      padding:12px 12px 10px;
+      margin-bottom:10px;
+    }
+    .card-top{ display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+    .date{ font-weight:900; }
+    .day{ color: var(--muted); font-weight:700; margin-left:6px; }
+    .type{ font-weight:900; color: rgba(255,255,255,.92); text-align:right; }
+    .line{ margin-top:6px; color: var(--muted); font-size:12.5px; }
+    .grid{
+      margin-top:10px;
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap:8px;
+    }
+    .grid .k{ display:block; color: var(--muted); font-size:11px; }
+    .grid .v{ display:block; font-variant-numeric: tabular-nums; font-size:14px; margin-top:1px; }
+    .note{
+      margin-top:10px;
+      padding-top:10px;
+      border-top:1px dashed rgba(255,255,255,.14);
+      color: rgba(255,255,255,.92);
+      font-size:12.5px;
+      white-space:pre-wrap;
+    }
+
+    @media (max-width: 720px){
+      .table-wrap{ display:none; }
+      .cards{ display:block; }
+      .totals{ grid-template-columns: 1fr; }
+      .tbox .v{ font-size:20px; }
+    }
+
+    @media print{
+      body{ background:#fff; color:#000; }
+      .head{ background:#eee; color:#000; border-color:#ddd; box-shadow:none; }
+      .meta{ background:#fff; color:#444; }
+      .table-wrap{ display:block; border-color:#ddd; }
+      thead th{ background:#f5f5f5; color:#000; border-color:#ddd; position: static; }
+      tbody td{ border-color:#eee; }
+      .cards{ display:none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <div class="title">${escapeHtml(title || 'Arbeitszeiterfassung')}</div>
+      <div class="sub">${escapeHtml(subtitle || '')}</div>
+      <div class="label">${escapeHtml(exportLabel || '')}</div>
+      <div class="totals">
+        <div class="tbox"><div class="k">Summe Ist</div><div class="v">${formatNum(sumIst)} h</div></div>
+        <div class="tbox"><div class="k">Summe Soll</div><div class="v">${formatNum(sumSoll)} h</div></div>
+        <div class="tbox"><div class="k">Summe Diff</div><div class="v">${formatNum(sumDiff)} h</div></div>
+      </div>
+      ${metaBlock}
+    </div>
+
+    <div class="cards">
+      ${cards}
+    </div>
+
+    <div class="table-wrap">
+      <div style="overflow:auto; max-width:100%;">
+        <table>
+          <thead>
+            <tr>
+              <th>Datum</th>
+              <th>Tag</th>
+              <th>Typ</th>
+              <th>Start</th>
+              <th>Ende</th>
+              <th>Pause</th>
+              <th>Soll</th>
+              <th>Ist</th>
+              <th>Diff</th>
+              <th>Ort</th>
+              <th>Notiz</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRows}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+    return html;
   }
 
-}
-
-  function escapePdfText(s){
+function escapePdfText(s){
     return String(s||"").replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)');
   }
 
@@ -601,9 +800,9 @@
     parseGermanNumber,
     parseCsv,
     buildCsv,
-    buildCsvMobile,
     downloadText,
     downloadBlob,
-    createSimplePdf
+    createSimplePdf,
+    buildMobileHtmlReport
   };
 })();
