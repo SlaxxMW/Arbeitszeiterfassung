@@ -1543,7 +1543,7 @@
 
   function registerSW(){
     if(!('serviceWorker' in navigator)) return;
-    navigator.serviceWorker.register('./sw.js?v=' + (window.__AZ_VERSION || '1.5.9') + '&b=' + (window.__AZ_BUILD || Date.now()), {scope:'./'}).then((reg)=>{
+    navigator.serviceWorker.register('./sw.js', {scope:'./'}).then((reg)=>{
       // listen for updates
       reg.addEventListener('updatefound', ()=>{
         const nw = reg.installing;
@@ -1620,8 +1620,8 @@
     // export
     els('btnExportCsvMonth').addEventListener('click', exportCsvMonth);
     els('btnExportCsvYear').addEventListener('click', exportCsvYear);
-    const mCsv = els('btnExportCsvMonthMobile'); if(mCsv) mCsv.addEventListener('click', exportCsvMonthMobile);
-    const yCsv = els('btnExportCsvYearMobile');  if(yCsv) yCsv.addEventListener('click', exportCsvYearMobile);
+    els('btnExportCsvMonthMobile').addEventListener('click', exportCsvMonthMobile);
+    els('btnExportCsvYearMobile').addEventListener('click', exportCsvYearMobile);
     els('btnExportPdfMonth').addEventListener('click', exportPdfMonth);
     els('btnExportPdfYear').addEventListener('click', exportPdfYear);
     els('btnBackupJson').addEventListener('click', backupJson);
