@@ -1620,8 +1620,8 @@
     // export
     els('btnExportCsvMonth').addEventListener('click', exportCsvMonth);
     els('btnExportCsvYear').addEventListener('click', exportCsvYear);
-    els('btnExportCsvMonthMobile').addEventListener('click', exportCsvMonthMobile);
-    els('btnExportCsvYearMobile').addEventListener('click', exportCsvYearMobile);
+    const mCsv = els('btnExportCsvMonthMobile'); if(mCsv) mCsv.addEventListener('click', exportCsvMonthMobile);
+    const yCsv = els('btnExportCsvYearMobile');  if(yCsv) yCsv.addEventListener('click', exportCsvYearMobile);
     els('btnExportPdfMonth').addEventListener('click', exportPdfMonth);
     els('btnExportPdfYear').addEventListener('click', exportPdfYear);
     els('btnBackupJson').addEventListener('click', backupJson);

@@ -1,8 +1,8 @@
-
-## 1.5.6 (20251222-182127)
-- Fix: Dezember 'S. Vormonat' / Saldo bleibt korrekt, auch wenn Okt/Nov nur per Monats-CSV vorhanden sind.
-- Fix: ServiceWorker Cache-Version aktualisiert (Updates werden zuverlässig geladen).
 # Changelog
+
+## v1.5.8 (20251222-193102)
+- Fix: App startet wieder auch wenn noch eine ältere index.html im Cache liegt (Mobile-Export Buttons crashen nicht mehr beim Start)
+- Fix: ServiceWorker Cache-Version + Resource-Cachebusting aktualisiert (Updates werden zuverlässig geladen)
 
 ## v1.5.5 (20251222-172134)
 - Fix: "S. Vormonat"/Saldo explodiert nicht mehr im Dezember – Monate ohne echte Tagesdaten werden bei der Saldo-Kette ignoriert (kein -8h/Tag für Jan–Sep, wenn du erst ab Okt erfasst)
