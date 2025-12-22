@@ -1,4 +1,7 @@
 
+## 1.6.3 (20251222-234900)
+- UI: Nicht genutzte Header-Icons entfernt (⤓ Export & ⋮ Menü), damit nur funktionierende Buttons sichtbar sind.
+
 ## 1.6.2 (20251222-233459)
 - Fix: iPhone Settings toggles (checkboxes) visible/clickable again (Mariä Himmelfahrt, Augsburger Friedensfest, Jahres-CSV).
 
