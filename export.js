@@ -399,7 +399,13 @@
 
   function parseCsv(text){
     const raw = text.replace(/^\uFEFF/, '');
-    const lines = raw.split(/\r?\n/).map(l=>l.trimEnd()).filter(l=>l.trim().length>0);
+    let lines = raw.split(/\r?\n/).map(l=>l.trimEnd()).filter(l=>l.trim().length>0);
+
+    // Allow meta-header lines on exports (e.g. starting with "## ...").
+    // They are ignored for import detection.
+    while(lines.length && (/^\s*##/.test(lines[0]) || /^\s*#/.test(lines[0]))){
+      lines.shift();
+    }
     if(lines.length<2) return {kind:'unknown', rows:[], errors:["CSV hat zu wenig Zeilen."]};
     const delim = detectDelimiter(lines[0]);
 

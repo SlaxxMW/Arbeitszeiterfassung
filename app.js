@@ -495,7 +495,10 @@
     // update month stats (optional: aus importierter Jahres-CSV übernehmen)
     let saldo = startSaldo + sumDiff;
 
-    if(settings.useYearSummaryMonthly){
+    // IMPORTANT: Wenn es Tagesdaten für diesen Monat gibt, muss die Berechnung tagesaktuell
+    // aus den Einträgen erfolgen. Jahres-/Monats-CSV Werte dienen nur als Fallback,
+    // wenn in diesem Monat noch keine Tagesdaten vorhanden sind.
+    if(settings.useYearSummaryMonthly && stored.length === 0){
       const ys = await getYearSummary(current.year);
       const im = findImportedMonth(ys, current.month);
       if(im){
@@ -937,12 +940,30 @@ async function calcCarryToMonth(year, month){
     })();
   }
 
+  function todayGerman(){
+    const d = new Date();
+    return `${pad2(d.getDate())}.${pad2(d.getMonth()+1)}.${d.getFullYear()}`;
+  }
+
+  function buildExportMetaLines(exportLabel){
+    // Meta-Header für CSV/PDF (wird beim Import automatisch ignoriert)
+    const lines = [];
+    lines.push('## Arbeitszeiterfassung Export');
+    lines.push(`## Firma: ${settings.company || ''}`);
+    lines.push(`## Name: ${settings.person || ''}`);
+    lines.push(`## Export-Datum: ${todayGerman()}`);
+    lines.push(`## Export-Typ: ${exportLabel}`);
+    return lines;
+  }
+
   async function exportCsvMonth(){
     const y = current.year, m = current.month;
     const startKey = toKey(y,m,1);
     const endKey = toKey(y,m,daysInMonth(y,m));
     const rows = await buildRowsForRange(startKey, endKey);
-    const csv = AZExport.buildCsv(rows);
+    const exportLabel = `Monat ${MONTHS[m-1]} ${y}`;
+    const meta = buildExportMetaLines(exportLabel).join('\n');
+    const csv = meta + "\n" + AZExport.buildCsv(rows);
     AZExport.downloadText(csv, `${settings.person||'Arbeitszeit'}_${settings.company||'Firma'}_Monat_${y}-${pad2(m)}.csv`, 'text/csv;charset=utf-8');
     toast("CSV Monat exportiert");
   }
@@ -952,7 +973,9 @@ async function calcCarryToMonth(year, month){
     const startKey = toKey(y,1,1);
     const endKey = toKey(y,12,31);
     const rows = await buildRowsForRange(startKey, endKey);
-    const csv = AZExport.buildCsv(rows);
+    const exportLabel = `Jahr ${y}`;
+    const meta = buildExportMetaLines(exportLabel).join('\n');
+    const csv = meta + "\n" + AZExport.buildCsv(rows);
     AZExport.downloadText(csv, `${settings.person||'Arbeitszeit'}_${settings.company||'Firma'}_Jahr_${y}.csv`, 'text/csv;charset=utf-8');
     toast("CSV Jahr exportiert");
   }
@@ -962,9 +985,16 @@ async function calcCarryToMonth(year, month){
     const startKey = toKey(y,m,1);
     const endKey = toKey(y,m,daysInMonth(y,m));
     const rows = await buildRowsForRange(startKey, endKey);
-    const title = `Arbeitszeiterfassung – ${settings.company || 'Firma'}`;
-    const subtitle = `${MONTHS[m-1]} ${y} – ${settings.person||''}`.trim();
-    const lines = rows.map(r=> `${r.datum}  ${r.wochentag}  | ${r.typ} | ${r.start}-${r.ende} | Pause ${r.pause_h} | Soll ${r.soll_h} | Ist ${r.ist_h} | Diff ${r.diff_h} | ${r.ort} | ${r.notiz}` );
+    const exportLabel = `Monat ${MONTHS[m-1]} ${y}`;
+    const title = `Arbeitszeiterfassung`;
+    const subtitle = `${settings.company || 'Firma'} • ${settings.person||''} • ${exportLabel} • Export: ${todayGerman()}`.replace(/\s+•\s+•/g,' •').trim();
+    const lines = rows.map(r=>{
+      const time = (r.start && r.ende) ? `${r.start}-${r.ende}` : '—';
+      const pause = (r.typ === 'Arbeitszeit') ? ` | Pause ${r.pause_h} h` : '';
+      const ort = r.ort ? ` | ${r.ort}` : '';
+      const notiz = r.notiz ? ` | ${r.notiz}` : '';
+      return `${r.datum}  ${r.wochentag}  | ${r.typ} | ${time}${pause}${ort}${notiz}`;
+    });
     const pdf = AZExport.createSimplePdf(title, subtitle, lines);
     AZExport.downloadBlob(pdf, `${settings.person||'Arbeitszeit'}_${settings.company||'Firma'}_${y}-${pad2(m)}.pdf`);
     toast("PDF Monat exportiert");
@@ -975,9 +1005,16 @@ async function calcCarryToMonth(year, month){
     const startKey = toKey(y,1,1);
     const endKey = toKey(y,12,31);
     const rows = await buildRowsForRange(startKey, endKey);
-    const title = `Arbeitszeiterfassung – ${settings.company || 'Firma'}`;
-    const subtitle = `Jahr ${y} – ${settings.person||''}`.trim();
-    const lines = rows.map(r=> `${r.datum}  ${r.wochentag}  | ${r.typ} | ${r.start}-${r.ende} | Pause ${r.pause_h} | Soll ${r.soll_h} | Ist ${r.ist_h} | Diff ${r.diff_h} | ${r.ort} | ${r.notiz}` );
+    const exportLabel = `Jahr ${y}`;
+    const title = `Arbeitszeiterfassung`;
+    const subtitle = `${settings.company || 'Firma'} • ${settings.person||''} • ${exportLabel} • Export: ${todayGerman()}`.replace(/\s+•\s+•/g,' •').trim();
+    const lines = rows.map(r=>{
+      const time = (r.start && r.ende) ? `${r.start}-${r.ende}` : '—';
+      const pause = (r.typ === 'Arbeitszeit') ? ` | Pause ${r.pause_h} h` : '';
+      const ort = r.ort ? ` | ${r.ort}` : '';
+      const notiz = r.notiz ? ` | ${r.notiz}` : '';
+      return `${r.datum}  ${r.wochentag}  | ${r.typ} | ${time}${pause}${ort}${notiz}`;
+    });
     const pdf = AZExport.createSimplePdf(title, subtitle, lines);
     AZExport.downloadBlob(pdf, `${settings.person||'Arbeitszeit'}_${settings.company||'Firma'}_${y}.pdf`);
     toast("PDF Jahr exportiert");
