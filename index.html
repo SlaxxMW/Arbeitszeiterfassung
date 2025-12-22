@@ -46,9 +46,7 @@
           <div class="stat-row"><span>Saldo</span><span class="stat-val" id="statSaldo">0,00 h</span></div>
           <div class="stat-row"><span>Urlaub</span><span class="stat-val" id="statVac">0/30</span></div>
           <div class="stat-row"><span>Krank</span><span class="stat-val" id="statSick">0 Tg</span></div>
-          <div class="stat-row"><span>Jahr-Diff</span><span class="stat-val" id="statYearDiff">0,00 h</span></div>
-          <div class="stat-row"><span>Jahr-Saldo</span><span class="stat-val" id="statYearSaldo">0,00 h</span></div>
-        </div>
+</div>
         <div class="mh-actions">
           <button class="btn btn-light" id="btnYearView">Jahr</button>
           <button class="btn btn-light" id="btnToday">Heute</button>
@@ -109,6 +107,13 @@
           <label>Startsaldo Jahr (Stunden)</label>
           <input type="number" id="setYearStartSaldo" step="0.25" />
           <div class="small">Gilt für das aktuell ausgewählte Jahr.</div>
+        </div>
+
+
+        <div class="form-row">
+          <label>Jahres-CSV Monatswerte verwenden</label>
+          <label class="toggle"><input type="checkbox" id="setUseYearSummaryMonthly" /> <span>aktiv</span></label>
+          <div class="small">Wenn eine Jahres-CSV importiert wurde, werden Soll/Ist/S. Vormonat/Saldo aus der CSV angezeigt.</div>
         </div>
 
         <hr />
