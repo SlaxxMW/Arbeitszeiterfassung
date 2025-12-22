@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#A1C51D" />
   <title>Arbeitszeiterfassung</title>
-  <link rel="manifest" href="manifest.webmanifest?v=1.4.0" />
+  <link rel="manifest" href="manifest.webmanifest?v=1.5.1" />
   <link rel="icon" href="icons/icon-192.png" />
-  <link rel="stylesheet" href="styles.css?v=1.4.0" />
+  <link rel="stylesheet" href="styles.css?v=1.5.1" />
 </head>
 <body>
   <header class="appbar">
@@ -31,6 +31,7 @@
     <section class="month-header" id="monthHeader">
       <div class="mh-left">
         <div class="mh-company" id="companyName">Zaunteam</div>
+        <div class="mh-person" id="personNameHeader"></div>
       </div>
       <div class="mh-right">
         <div class="mh-monthrow">
@@ -43,66 +44,15 @@
           <div class="stat-row"><span>Ist-Stunden</span><span class="stat-val" id="statIst">0,00 h</span></div>
           <div class="stat-row"><span>S. Vormonat</span><span class="stat-val" id="statCarry">0,00 h</span></div>
           <div class="stat-row"><span>Saldo</span><span class="stat-val" id="statSaldo">0,00 h</span></div>
+          <div class="stat-row"><span>Urlaub</span><span class="stat-val" id="statVac">0/30</span></div>
+          <div class="stat-row"><span>Krank</span><span class="stat-val" id="statSick">0 Tg</span></div>
+          <div class="stat-row"><span>Jahr-Diff</span><span class="stat-val" id="statYearDiff">0,00 h</span></div>
+          <div class="stat-row"><span>Jahr-Saldo</span><span class="stat-val" id="statYearSaldo">0,00 h</span></div>
         </div>
         <div class="mh-actions">
           <button class="btn btn-light" id="btnYearView">Jahr</button>
           <button class="btn btn-light" id="btnToday">Heute</button>
         </div>
-      </div>
-    </section>
-
-    <section class="editor hidden" id="dayEditor">
-      <div class="editor-top">
-        <div class="editor-title" id="editorTitle">—</div>
-        <div class="editor-week" id="editorWeek">—</div>
-      </div>
-      <div class="editor-grid">
-        <div class="editor-block">
-          <div class="block-title">1. Schicht</div>
-          <div class="row">
-            <label>Typ</label>
-            <select id="editType">
-              <option value="work">Arbeitszeit</option>
-              <option value="vac">Urlaub</option>
-              <option value="sick">Krank</option>
-              <option value="holiday">Feiertag</option>
-              <option value="rest">Ruhetag</option>
-              <option value="comp">Zeitausgleich</option>
-            </select>
-          </div>
-          <div class="row">
-            <label>Start</label>
-            <input type="time" id="editStart" />
-            <label class="mid">bis</label>
-            <input type="time" id="editEnd" />
-          </div>
-          <div class="row">
-            <label>Ort</label>
-            <input type="text" id="editPlace" placeholder="Kein Ort" />
-          </div>
-        </div>
-
-        <div class="editor-block">
-          <div class="block-title">Essens-/Pausenzeiten</div>
-          <div class="row">
-            <label>Pause</label>
-            <input type="number" id="editBreak" step="0.05" min="0" />
-            <span class="suffix">h</span>
-          </div>
-          <div class="hint">Default bei Arbeitstagen: 0,50 h</div>
-        </div>
-
-        <div class="editor-block">
-          <div class="block-title">Tagesnotiz</div>
-          <textarea id="editNote" rows="2" placeholder="Bemerkung zum Tag."></textarea>
-        </div>
-      </div>
-
-      <div class="editor-actions">
-        <button class="btn btn-light" id="btnCopyYesterday">Wie gestern</button>
-        <div class="spacer"></div>
-        <button class="btn btn-primary" id="btnSaveDay">Speichern</button>
-        <button class="btn btn-light" id="btnCloseDay">Schließen</button>
       </div>
     </section>
 
@@ -227,9 +177,9 @@
 
   <div class="toast hidden" id="toast"></div>
 
-  <script src="db.js?v=1.4.0"></script>
-  <script src="holidays.js?v=1.4.0"></script>
-  <script src="export.js?v=1.4.0"></script>
-  <script src="app.js?v=1.4.0"></script>
+  <script src="db.js?v=1.5.1"></script>
+  <script src="holidays.js?v=1.5.1"></script>
+  <script src="export.js?v=1.5.1"></script>
+  <script src="app.js?v=1.5.1"></script>
 </body>
 </html>

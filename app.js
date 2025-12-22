@@ -7,23 +7,18 @@
   const els = (id) => document.getElementById(id);
 
   const $dayList = els('dayList');
-  const $dayEditor = els('dayEditor');
   const $monthLabel = els('monthLabel');
   const $companyName = els('companyName');
+  const $personNameHeader = els('personNameHeader');
 
   const $statSoll = els('statSoll');
   const $statIst = els('statIst');
   const $statCarry = els('statCarry');
   const $statSaldo = els('statSaldo');
-
-  const $editorTitle = els('editorTitle');
-  const $editorWeek = els('editorWeek');
-  const $editType = els('editType');
-  const $editStart = els('editStart');
-  const $editEnd = els('editEnd');
-  const $editBreak = els('editBreak');
-  const $editPlace = els('editPlace');
-  const $editNote = els('editNote');
+  const $statVac = els('statVac');
+  const $statSick = els('statSick');
+  const $statYearDiff = els('statYearDiff');
+  const $statYearSaldo = els('statYearSaldo');
 
   const $settingsModal = els('settingsModal');
   const $importModal = els('importModal');
@@ -57,7 +52,7 @@
   // state
   let settings = null;
   let current = { year: null, month: null }; // month 1..12
-  let selectedDateKey = null;
+  let openDateKey = null;
   let pendingImport = null; // {rows, errors, meta}
 
   // ---- Utils ----
@@ -295,8 +290,12 @@
     const startSaldo = carry;
     let sumSoll=0, sumIst=0, sumDiff=0;
 
-    // build list
+    // build list (alle Tage + Inline-Editor im Listeneintrag)
     $dayList.innerHTML = "";
+
+    // openDateKey nur behalten, wenn er im aktuellen Monat liegt
+    if(openDateKey && !openDateKey.startsWith(`${current.year}-${pad2(current.month)}-`)) openDateKey = null;
+
     for(const key of dayKeys){
       const recNorm = normalizeRecord(key, map.get(key));
       const hours = calcDayHours(key, recNorm);
@@ -307,45 +306,44 @@
       const d = toDateObj(key);
       const wname = WEEKDAYS[d.getDay()];
       const dd = pad2(d.getDate());
-      const mm = pad2(d.getMonth()+1);
       const dateLabel = `${wname}, ${dd}. ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 
-      const el = document.createElement('div');
-      el.className = "day-item";
-      el.dataset.date = key;
+      const card = document.createElement('div');
+      card.className = 'day-card';
+      card.dataset.date = key;
+
+      const summary = document.createElement('div');
+      summary.className = 'day-item';
+      summary.dataset.date = key;
 
       const left = document.createElement('div');
-      left.className = "day-left";
+      left.className = 'day-left';
 
       const line1 = document.createElement('div');
-      line1.className = "d1";
+      line1.className = 'd1';
       line1.textContent = dateLabel;
-
       const badge = document.createElement('span');
-      badge.className = "badge";
+      badge.className = 'badge';
       badge.textContent = typeLabel(recNorm.type, key);
       line1.appendChild(badge);
 
       const line2 = document.createElement('div');
-      line2.className = "d2";
+      line2.className = 'd2';
       if(recNorm.type === 'work'){
         if(recNorm.start && recNorm.end) line2.textContent = `${recNorm.start} - ${recNorm.end}`;
-        else line2.textContent = "—";
+        else line2.textContent = '—';
       }else if(recNorm.type === 'rest'){
-        line2.textContent = "Ruhetag";
+        line2.textContent = 'Ruhetag';
       }else{
-        // holiday/vac/sick/comp
         const hn = recNorm.type === 'holiday' ? getHolidayNameIfAny(key) : null;
         line2.textContent = hn ? hn : typeLabel(recNorm.type, key);
       }
 
       const line3 = document.createElement('div');
-      line3.className = "d3";
+      line3.className = 'd3';
       if(recNorm.type === 'work'){
         const p = (recNorm.breakH ?? 0.5);
         line3.textContent = `${p.toFixed(2).replace('.',',')} h Essens-/Pausenzeiten`;
-      }else{
-        line3.textContent = "";
       }
 
       left.appendChild(line1);
@@ -353,26 +351,143 @@
       if(line3.textContent) left.appendChild(line3);
 
       const right = document.createElement('div');
-      right.className = "day-right";
+      right.className = 'day-right';
       const big = document.createElement('div');
-      big.className = "hbig";
+      big.className = 'hbig';
       big.textContent = `${hours.ist.toFixed(2).replace('.',',')} h`;
-
       const diff = document.createElement('div');
-      diff.className = "hdiff";
-      const diffTxt = `(${hours.diff.toFixed(2).replace('.',',')})`;
-      diff.textContent = diffTxt;
+      diff.className = 'hdiff';
+      diff.textContent = `(${hours.diff.toFixed(2).replace('.',',')})`;
       if(hours.diff > 0.005) diff.classList.add('good');
       else if(hours.diff < -0.005) diff.classList.add('bad');
-
       right.appendChild(big);
       right.appendChild(diff);
 
-      el.appendChild(left);
-      el.appendChild(right);
+      summary.appendChild(left);
+      summary.appendChild(right);
 
-      el.addEventListener('click', ()=>openEditor(key));
-      $dayList.appendChild(el);
+      const editor = document.createElement('div');
+      editor.className = 'day-editor-inline';
+      if(openDateKey !== key) editor.classList.add('hidden');
+      editor.innerHTML = `
+        <div class="inline-head">
+          <div class="inline-meta">${wname} ${dd}.${pad2(d.getMonth()+1)}.${d.getFullYear()} • Woche ${isoWeekNumber(d)}<\/div>
+        <\/div>
+        <div class="inline-grid">
+          <div class="inline-row">
+            <label>Typ<\/label>
+            <select class="in-type">
+              <option value="work">Arbeitszeit<\/option>
+              <option value="vac">Urlaub<\/option>
+              <option value="sick">Krank<\/option>
+              <option value="holiday">Feiertag<\/option>
+              <option value="comp">Zeitausgleich<\/option>
+              <option value="rest">Ruhetag<\/option>
+            <\/select>
+          <\/div>
+          <div class="inline-row times">
+            <label>Start<\/label>
+            <input type="time" class="in-start" />
+            <div class="mid">bis<\/div>
+            <input type="time" class="in-end" />
+          <\/div>
+          <div class="inline-row">
+            <label>Pause (h)<\/label>
+            <input type="number" step="0.25" min="0" class="in-break" />
+          <\/div>
+          <div class="inline-row">
+            <label>Ort<\/label>
+            <input type="text" class="in-place" placeholder="Baustelle / Ort" />
+          <\/div>
+          <div class="inline-row">
+            <label>Notiz<\/label>
+            <textarea rows="2" class="in-note" placeholder="Bemerkung zum Tag…"><\/textarea>
+          <\/div>
+          <div class="inline-hint">Tipp: Nicht-Arbeitszeit zählt automatisch als 8,00 h (Mo–Fr).<\/div>
+        <\/div>
+        <div class="inline-actions">
+          <button class="btn btn-light in-copy" type="button">Wie gestern<\/button>
+          <div class="spacer"><\/div>
+          <button class="btn btn-light in-close" type="button">Schließen<\/button>
+          <button class="btn btn-primary in-save" type="button">Speichern<\/button>
+        <\/div>
+      `;
+
+      const refs = {
+        type: editor.querySelector('.in-type'),
+        start: editor.querySelector('.in-start'),
+        end: editor.querySelector('.in-end'),
+        breakH: editor.querySelector('.in-break'),
+        place: editor.querySelector('.in-place'),
+        note: editor.querySelector('.in-note')
+      };
+
+      // init input values
+      refs.type.value = recNorm.type;
+      refs.start.value = recNorm.start || '';
+      refs.end.value = recNorm.end || '';
+      refs.breakH.value = String(recNorm.type === 'work' ? (recNorm.breakH ?? 0.5) : 0);
+      refs.place.value = recNorm.place || '';
+      refs.note.value = recNorm.note || '';
+      applyTypeRulesToInputs(refs.type.value, refs.start, refs.end, refs.breakH);
+
+      refs.type.addEventListener('change', ()=>{
+        applyTypeRulesToInputs(refs.type.value, refs.start, refs.end, refs.breakH);
+      });
+
+      editor.querySelector('.in-copy').addEventListener('click', async (ev)=>{
+        ev.stopPropagation();
+        await copyYesterdayInto(key, refs);
+        applyTypeRulesToInputs(refs.type.value, refs.start, refs.end, refs.breakH);
+      });
+
+      editor.querySelector('.in-close').addEventListener('click', (ev)=>{
+        ev.stopPropagation();
+        openDateKey = null;
+        card.classList.remove('open');
+        editor.classList.add('hidden');
+      });
+
+      editor.querySelector('.in-save').addEventListener('click', async (ev)=>{
+        ev.stopPropagation();
+        await saveInlineDay(key, refs);
+        toast('Gespeichert');
+        openDateKey = null;
+        await renderMonth();
+        // nach dem Speichern wieder zum Tag scrollen
+        setTimeout(()=>scrollToDay(key), 40);
+      });
+
+      summary.addEventListener('click', async ()=>{
+        const isOpen = card.classList.contains('open');
+        // close any open card
+        const open = $dayList.querySelector('.day-card.open');
+        if(open && open !== card){
+          open.classList.remove('open');
+          open.querySelector('.day-editor-inline')?.classList.add('hidden');
+        }
+        if(isOpen){
+          card.classList.remove('open');
+          editor.classList.add('hidden');
+          openDateKey = null;
+        }else{
+          // reload record when opening (in case it changed)
+          const fresh = await AZDB.getDay(key);
+          await fillInlineInputs(key, fresh, refs);
+          card.classList.add('open');
+          editor.classList.remove('hidden');
+          openDateKey = key;
+          setTimeout(()=>editor.scrollIntoView({block:'nearest', behavior:'smooth'}), 0);
+        }
+      });
+
+      card.appendChild(summary);
+      card.appendChild(editor);
+      if(openDateKey === key){
+        card.classList.add('open');
+        editor.classList.remove('hidden');
+      }
+      $dayList.appendChild(card);
     }
 
     // update month stats
@@ -384,15 +499,29 @@
     setGoodBad($statCarry, startSaldo);
     setGoodBad($statSaldo, saldo);
 
-    // company
+    // company + person
     $companyName.textContent = settings.company;
+    $personNameHeader.textContent = (settings.person || '');
 
-    // keep editor open if selected date within current month
-    if(selectedDateKey && selectedDateKey.startsWith(`${current.year}-${pad2(current.month)}-`)){
-      await openEditor(selectedDateKey, true);
-    }else{
-      closeEditor();
-    }
+    // Urlaub/Krank (Jahr)
+    const yc = await calcYearCounters(current.year);
+    $statVac.textContent = yc.vacUsed + '/' + settings.vacationPerYear;
+    $statSick.textContent = yc.sickDays + ' Tg';
+
+    // Jahr (aktuell bis inkl. aktuellem Monat): im Header nur Diff + Saldo
+    try{
+      const ytd = await calcYearToMonth(current.year, current.month);
+      const yStart = await getYearStartSaldo(current.year);
+      const ySaldo = (Number(yStart)||0) + (Number(ytd.diff)||0);
+      if($statYearDiff){
+        $statYearDiff.textContent = formatHours(ytd.diff||0);
+        setGoodBad($statYearDiff, ytd.diff||0);
+      }
+      if($statYearSaldo){
+        $statYearSaldo.textContent = formatHours(ySaldo||0);
+        setGoodBad($statYearSaldo, ySaldo||0);
+      }
+    }catch(e){ /* ignore */ }
   }
 
   function setGoodBad(el, v){
@@ -441,94 +570,105 @@
     return {soll, ist, diff};
   }
 
-  // ---- Editor ----
-  async function openEditor(dateKey, keepFocus=false){
-    selectedDateKey = dateKey;
-    const rec = await AZDB.getDay(dateKey);
-    const norm = normalizeRecord(dateKey, rec);
-
-    const d = toDateObj(dateKey);
-    const wname = WEEKDAYS[d.getDay()];
-    const dd = pad2(d.getDate());
-    const mm = pad2(d.getMonth()+1);
-    $editorTitle.textContent = `${wname} ${dd}.${mm}.${d.getFullYear()}`;
-    $editorWeek.textContent = `Woche ${isoWeekNumber(d)}`;
-
-    $editType.value = norm.type;
-    $editStart.value = norm.start;
-    $editEnd.value = norm.end;
-    $editBreak.value = (norm.type === 'work' ? (norm.breakH ?? 0.5) : 0);
-    $editPlace.value = norm.place || "";
-    $editNote.value = norm.note || "";
-
-    applyEditorTypeRules();
-
-    $dayEditor.classList.remove('hidden');
-    if(!keepFocus){
-      // avoid scroll jump; just ensure editor visible minimally
-      // no auto scroll
+  async function calcYearToMonth(year, month){
+    const m = Math.max(1, Math.min(12, Number(month)||1));
+    let soll=0, ist=0, diff=0;
+    for(let mm=1; mm<=m; mm++){
+      const r = await calcMonthDiff(year, mm);
+      soll += r.soll; ist += r.ist; diff += r.diff;
     }
+    return {soll, ist, diff};
   }
 
-  function closeEditor(){
-    $dayEditor.classList.add('hidden');
-    selectedDateKey = null;
+  async function calcYearCounters(year){
+    const start = toKey(year, 1, 1);
+    const end = toKey(year, 12, 31);
+    const all = await AZDB.getRange(start, end);
+    let vacUsed = 0;
+    let sickDays = 0;
+    for(const r of all){
+      if(!r || !r.date) continue;
+      if(r.type === 'vac' && baseSollHours(r.date) > 0) vacUsed++;
+      if(r.type === 'sick' && baseSollHours(r.date) > 0) sickDays++;
+    }
+
+    // Fallback: wenn noch keine Tagesdaten vorhanden sind, nutze ggf. Jahres-CSV-Import
+    if(all.length === 0){
+      const raw = await AZDB.getSetting('yearSummary_' + year, null);
+      if(raw){
+        try{
+          const ys = JSON.parse(raw);
+          const total = ys && ys.counts && ys.counts.totalByKey ? ys.counts.totalByKey : null;
+          if(total){
+            if(typeof total.ferien_urlaub === 'number') vacUsed = total.ferien_urlaub;
+            if(typeof total.krank === 'number') sickDays = total.krank;
+          }
+        }catch(e){ /* ignore */ }
+      }
+    }
+
+    return {vacUsed, sickDays};
   }
 
-  function applyEditorTypeRules(){
-    const t = $editType.value;
-    const work = (t === 'work');
-    $editStart.disabled = !work;
-    $editEnd.disabled = !work;
-    $editBreak.disabled = !work;
+  // ---- Inline Editor (im Listen-Eintrag) ----
+  function applyTypeRulesToInputs(type, startEl, endEl, breakEl){
+    const work = (type === 'work');
+    startEl.disabled = !work;
+    endEl.disabled = !work;
+    breakEl.disabled = !work;
     if(work){
-      if(!$editBreak.value) $editBreak.value = 0.5;
+      if(!breakEl.value) breakEl.value = '0.5';
     }else{
-      $editStart.value = "";
-      $editEnd.value = "";
-      $editBreak.value = 0;
+      startEl.value = '';
+      endEl.value = '';
+      breakEl.value = '0';
     }
   }
 
-  async function saveDay(){
-    if(!selectedDateKey) return;
-    const t = $editType.value || getDefaultType(selectedDateKey);
-    const rec = {
-      date: selectedDateKey,
-      type: t,
-      start: ($editStart.value || "").trim(),
-      end: ($editEnd.value || "").trim(),
-      breakH: Number($editBreak.value || 0),
-      place: ($editPlace.value || "").trim(),
-      note: ($editNote.value || "").trim(),
-      updatedAt: Date.now()
-    };
-    if(!Number.isFinite(rec.breakH) || rec.breakH < 0) rec.breakH = 0;
-    if(t !== 'work'){ rec.start=""; rec.end=""; rec.breakH = 0; }
-
-    await AZDB.setDay(rec);
-    toast("Gespeichert");
-    await renderMonth();
+  async function fillInlineInputs(key, rec, refs){
+    const norm = normalizeRecord(key, rec);
+    refs.type.value = norm.type;
+    refs.start.value = norm.start || '';
+    refs.end.value = norm.end || '';
+    refs.breakH.value = String(norm.type === 'work' ? (norm.breakH ?? 0.5) : 0);
+    refs.place.value = norm.place || '';
+    refs.note.value = norm.note || '';
+    applyTypeRulesToInputs(norm.type, refs.start, refs.end, refs.breakH);
   }
 
-  async function copyYesterday(){
-    if(!selectedDateKey) return;
-    const d = toDateObj(selectedDateKey);
+  async function copyYesterdayInto(key, refs){
+    const d = toDateObj(key);
     d.setDate(d.getDate()-1);
     const yKey = toKey(d.getFullYear(), d.getMonth()+1, d.getDate());
     const prev = await AZDB.getDay(yKey);
     const normPrev = normalizeRecord(yKey, prev);
-    // copy only times/pause/place; do not force type
-    $editStart.value = normPrev.start || "";
-    $editEnd.value = normPrev.end || "";
-    $editBreak.value = normPrev.breakH ?? 0.5;
-    if(normPrev.place) $editPlace.value = normPrev.place;
-    toast("Wie gestern übernommen");
+    refs.start.value = normPrev.start || '';
+    refs.end.value = normPrev.end || '';
+    refs.breakH.value = String(normPrev.breakH ?? 0.5);
+    if(normPrev.place) refs.place.value = normPrev.place;
+    toast('Wie gestern übernommen');
   }
+
+  async function saveInlineDay(key, refs){
+    const t = refs.type.value || getDefaultType(key);
+    const rec = {
+      date: key,
+      type: t,
+      start: (refs.start.value || '').trim(),
+      end: (refs.end.value || '').trim(),
+      breakH: Number(refs.breakH.value || 0),
+      place: (refs.place.value || '').trim(),
+      note: (refs.note.value || '').trim(),
+      updatedAt: Date.now()
+    };
+    if(!Number.isFinite(rec.breakH) || rec.breakH < 0) rec.breakH = 0;
+    if(t !== 'work'){ rec.start=''; rec.end=''; rec.breakH = 0; }
+    await AZDB.setDay(rec);
+  }
+
 
   // ---- Year view ----
   async function openYearView(){
-    $dayEditor.classList.add('hidden');
     $dayList.classList.add('hidden');
     $yearView.classList.remove('hidden');
 
@@ -537,7 +677,6 @@
     $yearCards.innerHTML = "";
 
     let ySoll=0, yIst=0, yDiff=0;
-    let vacationUsed=0;
 
     for(let m=1; m<=12; m++){
       const {soll, ist, diff} = await calcMonthDiff(year, m);
@@ -550,47 +689,119 @@
       card.className = 'year-card';
       card.innerHTML = `
         <div>
-          <div class="mname">${MONTHS[m-1]}</div>
-          <div class="small">S. Vormonat: ${AZExport.formatNum(carry)} h</div>
-        </div>
+          <div class="mname">${MONTHS[m-1]}<\/div>
+          <div class="small">S. Vormonat: ${AZExport.formatNum(carry)} h<\/div>
+        <\/div>
         <div class="vals">
-          <div>Soll: <b>${AZExport.formatNum(soll)} h</b></div>
-          <div>Ist: <b>${AZExport.formatNum(ist)} h</b></div>
-          <div>Diff: <b class="${diff>0.005?'good':diff<-0.005?'bad':''}">${AZExport.formatNum(diff)} h</b></div>
-          <div>Saldo: <b class="${saldo>0.005?'good':saldo<-0.005?'bad':''}">${AZExport.formatNum(saldo)} h</b></div>
-        </div>
+          <div>Soll: <b>${AZExport.formatNum(soll)} h<\/b><\/div>
+          <div>Ist: <b>${AZExport.formatNum(ist)} h<\/b><\/div>
+          <div>Diff: <b class="${diff>0.005?'good':diff<-0.005?'bad':''}">${AZExport.formatNum(diff)} h<\/b><\/div>
+          <div>Saldo: <b class="${saldo>0.005?'good':saldo<-0.005?'bad':''}">${AZExport.formatNum(saldo)} h<\/b><\/div>
+        <\/div>
       `;
       card.addEventListener('click', ()=>{
         current.month = m;
+        openDateKey = null;
         renderMonth();
       });
       $yearCards.appendChild(card);
     }
 
-    // vacation used
-    const all = await AZDB.getRange(toKey(year,1,1), toKey(year,12,31));
-    for(const r of all){
-      if(r.type === 'vac'){
-        const key = r.date;
-        if(baseSollHours(key) > 0) vacationUsed++;
-      }
-    }
-    const vacLeft = Math.max(0, settings.vacationPerYear - vacationUsed);
+    const yc = await calcYearCounters(year);
+    const vacLeft = Math.max(0, settings.vacationPerYear - yc.vacUsed);
     const startSaldo = await getYearStartSaldo(year);
     const ySaldo = startSaldo + yDiff;
 
+    // Optional: Importierte Jahres-CSV anzeigen
+    let importBox = '';
+    const raw = await AZDB.getSetting('yearSummary_' + year, null);
+    if(raw){
+      try{
+        const ys = JSON.parse(raw);
+        importBox = buildImportedYearBox(ys);
+      }catch(e){ /* ignore */ }
+    }
+
     $yearSummary.innerHTML = `
-      <div><b>Jahres-Soll:</b> ${AZExport.formatNum(ySoll)} h</div>
-      <div><b>Jahres-Ist:</b> ${AZExport.formatNum(yIst)} h</div>
-      <div><b>Jahres-Diff:</b> <span class="${yDiff>0.005?'good':yDiff<-0.005?'bad':''}"><b>${AZExport.formatNum(yDiff)} h</b></span></div>
-      <div><b>Startsaldo Jahr:</b> ${AZExport.formatNum(startSaldo)} h</div>
-      <div><b>Jahres-Saldo:</b> <span class="${ySaldo>0.005?'good':ySaldo<-0.005?'bad':''}"><b>${AZExport.formatNum(ySaldo)} h</b></span></div>
+      <div><b>Jahres-Soll:<\/b> ${AZExport.formatNum(ySoll)} h<\/div>
+      <div><b>Jahres-Ist:<\/b> ${AZExport.formatNum(yIst)} h<\/div>
+      <div><b>Jahres-Diff:<\/b> <span class="${yDiff>0.005?'good':yDiff<-0.005?'bad':''}"><b>${AZExport.formatNum(yDiff)} h<\/b><\/span><\/div>
+      <div><b>Startsaldo Jahr:<\/b> ${AZExport.formatNum(startSaldo)} h<\/div>
+      <div><b>Jahres-Saldo:<\/b> <span class="${ySaldo>0.005?'good':ySaldo<-0.005?'bad':''}"><b>${AZExport.formatNum(ySaldo)} h<\/b><\/span><\/div>
       <hr />
-      <div><b>Urlaub:</b> ${vacationUsed} genommen / ${vacLeft} übrig (von ${settings.vacationPerYear})</div>
+      <div><b>Urlaub:<\/b> ${yc.vacUsed} genommen / ${vacLeft} übrig (von ${settings.vacationPerYear})<\/div>
+      <div><b>Krank:<\/b> ${yc.sickDays} Tage<\/div>
+      ${importBox}
     `;
   }
 
+  function escHtml(s){
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function buildImportedYearBox(ys){
+    if(!ys || (!ys.months && !ys.counts)) return '';
+
+    let html = `<div class="import-box"><div class="import-title"><b>CSV Jahresübersicht (Import)<\/b><\/div>`;
+
+    if(Array.isArray(ys.months) && ys.months.length){
+      html += `<div class="small">Monatswerte aus der Jahres-CSV (Soll/Ist/Diff/Saldo).<\/div>`;
+      html += `<div class="table-wrap"><table class="tbl"><thead><tr><th>Monat<\/th><th>Soll<\/th><th>Ist<\/th><th>Diff<\/th><th>Saldo<\/th><\/tr><\/thead><tbody>`;
+      for(const m of ys.months){
+        if(!m) continue;
+        const name = m.name || (typeof m.month==='number'?MONTHS[m.month-1]:String(m.month||''));
+        const soll = AZExport.formatNum(Number(m.soll||0));
+        const ist  = AZExport.formatNum(Number(m.ist||0));
+        const diff = Number(m.diff||0);
+        const saldo = Number(m.saldo||0);
+        html += `<tr><td>${escHtml(name)}<\/td><td>${soll}<\/td><td>${ist}<\/td><td class="${diff>0.005?'good':diff<-0.005?'bad':''}">${AZExport.formatNum(diff)}<\/td><td class="${saldo>0.005?'good':saldo<-0.005?'bad':''}">${AZExport.formatNum(saldo)}<\/td><\/tr>`;
+      }
+      html += `</tbody></table></div>`;
+    }
+
+    if(ys.counts && ys.counts.totalRaw){
+      html += `<hr /><div><b>Tage-Statistik (Total)<\/b><\/div>`;
+      html += `<div class="chips">`;
+      const entries = Object.entries(ys.counts.totalRaw);
+      for(const [k,v] of entries){
+        html += `<div class="chip"><span>${escHtml(k)}<\/span><b>${escHtml(v)}<\/b><\/div>`;
+      }
+      html += `</div>`;
+
+      // pro Monat (vollständige Tabelle, horizontal scrollbar)
+      if(Array.isArray(ys.counts.months) && ys.counts.months.length && Array.isArray(ys.counts.headers)){
+        html += `<div class="small" style="margin-top:8px">Tage-Statistik pro Monat (aus Jahres-CSV).</div>`;
+        html += `<div class="table-wrap"><table class="tbl"><thead><tr>`;
+        for(const h of ys.counts.headers){
+          html += `<th>${escHtml(h)}</th>`;
+        }
+        html += `</tr></thead><tbody>`;
+        for(const row of ys.counts.months){
+          html += `<tr>`;
+          for(const h of ys.counts.headers){
+            const v = row && row.valuesRaw ? (row.valuesRaw[h] ?? '') : '';
+            html += `<td>${escHtml(v)}</td>`;
+          }
+          html += `</tr>`;
+        }
+        if(ys.counts.totalRaw){
+          html += `<tr>`;
+          for(const h of ys.counts.headers){
+            const v = ys.counts.totalRaw[h] ?? '';
+            html += `<td><b>${escHtml(v)}</b></td>`;
+          }
+          html += `</tr>`;
+        }
+        html += `</tbody></table></div>`;
+      }
+    }
+
+    html += `</div>`;
+    return html;
+  }
+
   // ---- Export helpers ----
+
   function buildRowsForRange(startKey, endKey){
     // returns Promise rows with computed soll/ist/diff for each day in range
     return (async ()=>{
@@ -792,21 +1003,32 @@
     lines.push(`Monate gefunden: ${Array.isArray(s.months)?s.months.length:0}`);
     if(Array.isArray(s.months) && s.months.length){
       lines.push("");
-      lines.push("Carry pro Monat (S. Vormonat):");
+      lines.push("Monatswerte (Soll/Ist/Diff/Saldo):");
       for(const m of s.months){
         const mn = String(m.name||"").padEnd(10,' ');
-        lines.push(`${mn}  ${AZExport.formatNum(m.carry||0)} h`);
+        lines.push(`${mn}  Soll ${AZExport.formatNum(m.soll||0)}  Ist ${AZExport.formatNum(m.ist||0)}  Diff ${AZExport.formatNum(m.diff||0)}  Saldo ${AZExport.formatNum(m.saldo||0)}`);
+      }
+      if(s.total){
+        lines.push("");
+        lines.push(`Total: Soll ${AZExport.formatNum(s.total.soll||0)} | Ist ${AZExport.formatNum(s.total.ist||0)} | Diff ${AZExport.formatNum(s.total.diff||0)} | Saldo ${AZExport.formatNum(s.total.saldo||0)}`);
       }
     }
+    if(s.counts && s.counts.totalByKey){
+      const t = s.counts.totalByKey;
+      const vac = (typeof t.ferien_urlaub==='number') ? t.ferien_urlaub : null;
+      const sick = (typeof t.krank==='number') ? t.krank : null;
+      lines.push("");
+      lines.push(`Tage-Statistik (Total): Urlaub ${vac!=null?vac:'—'} | Krank ${sick!=null?sick:'—'} | Feiertage ${typeof t.feiertag==='number'?t.feiertag:'—'}`);
+    }
     lines.push("");
-    lines.push("Hinweis: Diese CSV enthält keine Tages-Zeiten. Es wird nur Name/Firma + Startsaldo übernommen.");
+    lines.push("Hinweis: Diese CSV enthält eine Jahresübersicht (Monatswerte + Tages-Statistik). Tageszeiten werden dadurch nicht automatisch befüllt.");
     return lines.join("\n");
   }
 
   async function confirmImport(){
     if(!pendingImport) return;
 
-    // 1) Jahres-CSV (nur Startsaldo + Name/Firma)
+    // 1) Jahres-CSV (Jahresübersicht: Monatswerte + Tages-Statistik)
     if(pendingImport.kind === 'year_summary'){
       const s = pendingImport.summary;
       const y = parseInt(String(s.year||''), 10);
@@ -817,6 +1039,11 @@
 
       const ys = Number(s.yearStartSaldo || 0);
       await AZDB.setSetting(getYearStartSaldoKey(y), Number.isFinite(ys) ? ys : 0);
+
+      // komplette Jahresübersicht für Anzeige/Fallback speichern
+      try{
+        await AZDB.setSetting('yearSummary_' + y, JSON.stringify(s));
+      }catch(e){ /* ignore */ }
 
       const curPerson = await AZDB.getSetting('person', '');
       const curCompany = await AZDB.getSetting('company', 'Zaunteam');
@@ -972,10 +1199,11 @@
     const y = Math.max(APP_MIN_YEAR, d.getFullYear());
     const m = d.getMonth()+1;
     current.year = y; current.month = m;
-    selectedDateKey = toKey(y,m,d.getDate());
+    const k = toKey(y,m,d.getDate());
+    openDateKey = k;
     renderMonth();
     // highlight in list
-    setTimeout(()=>scrollToDay(selectedDateKey), 50);
+    setTimeout(()=>scrollToDay(k), 60);
   }
 
   function scrollToDay(key){
@@ -1010,11 +1238,6 @@
     els('btnToday').addEventListener('click', gotoToday);
     els('btnYearView').addEventListener('click', openYearView);
     els('btnBackToMonth').addEventListener('click', ()=>renderMonth());
-
-    $editType.addEventListener('change', applyEditorTypeRules);
-    els('btnSaveDay').addEventListener('click', saveDay);
-    els('btnCloseDay').addEventListener('click', closeEditor);
-    els('btnCopyYesterday').addEventListener('click', copyYesterday);
 
     // update banner
     els('btnUpdateNow').addEventListener('click', updateNow);

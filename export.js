@@ -102,20 +102,26 @@
     const year = parseInt((first[1]||"").trim(),10);
     const company = (first[2]||"").trim();
 
-    let headerIdx = -1;
+    let headerIdx1 = -1;
     for(let i=0;i<lines.length;i++){
       const l = lines[i];
       if(/^Monat/i.test(l) && l.includes("Soll-Stunden") && l.includes("Ist-Stunden") && l.includes("S. Vormonat")){
-        headerIdx = i;
+        headerIdx1 = i;
         break;
       }
     }
-    if(headerIdx < 0) return {errors:["Jahres-CSV erkannt, aber Monats-Header nicht gefunden."]};
+    if(headerIdx1 < 0) return {errors:["Jahres-CSV erkannt, aber Monats-Header nicht gefunden."]};
 
-    const header = splitCsvLine(lines[headerIdx], delim).map(normalizeHeader);
-    const colMonth = header.findIndex(h=>h==='monat');
-    const colCarry = header.findIndex(h=>h.includes('s. vormonat') || h.includes('s.vormonat'));
-    if(colMonth<0 || colCarry<0) return {errors:["Monat/S. Vormonat Spalten fehlen."]};
+    const header1Raw = splitCsvLine(lines[headerIdx1], delim);
+    const header1 = header1Raw.map(normalizeHeader);
+    const colMonth = header1.findIndex(h=>h==='monat');
+    const colSoll = header1.findIndex(h=>h.includes('soll-stunden'));
+    const colIst  = header1.findIndex(h=>h.includes('ist-stunden'));
+    const colDiff = header1.findIndex(h=>h==='differenz' || h.includes('differenz'));
+    const colCarry = header1.findIndex(h=>h.includes('s. vormonat') || h.includes('s.vormonat'));
+    const colPaidOT = header1.findIndex(h=>h.includes('bezahlte') && h.includes('ueberstunden'));
+    const colSaldo = header1.findIndex(h=>h==='saldo' || h.includes('saldo'));
+    if(colMonth<0 || colSoll<0 || colIst<0 || colCarry<0) return {errors:["Monat/Soll/Ist/S. Vormonat Spalten fehlen."]};
 
     const monthMap = {
       "januar":1,"februar":2,"maerz":3,"märz":3,"april":4,"mai":5,"juni":6,"juli":7,
@@ -123,22 +129,97 @@
     };
 
     const months = [];
-    for(let i=headerIdx+1;i<lines.length;i++){
-      const cols = splitCsvLine(lines[i], delim);
+    let total = null;
+
+    for(let i=headerIdx1+1;i<lines.length;i++){
+      const l = lines[i];
+      // second table begins
+      if(/^Monat/i.test(l) && l.includes('Arbeitszeit') && l.includes('Ferien/Urlaub')) break;
+      const cols = splitCsvLine(l, delim);
       if(cols.length < 2) continue;
       const mName = normalizeHeader(cols[colMonth]||"");
+      const obj = {
+        name: cols[colMonth],
+        soll: parseGermanNumber(cols[colSoll]) ?? 0,
+        ist: parseGermanNumber(cols[colIst]) ?? 0,
+        diff: colDiff>=0 ? (parseGermanNumber(cols[colDiff]) ?? 0) : 0,
+        carry: parseGermanNumber(cols[colCarry]) ?? 0,
+        paidOvertime: colPaidOT>=0 ? (parseGermanNumber(cols[colPaidOT]) ?? 0) : 0,
+        saldo: colSaldo>=0 ? (parseGermanNumber(cols[colSaldo]) ?? 0) : 0
+      };
+      if(mName === 'total'){
+        total = obj;
+        continue;
+      }
       if(!monthMap[mName]) continue;
-      const mNo = monthMap[mName];
-      const carry = parseGermanNumber(cols[colCarry]);
-      months.push({month:mNo, name:cols[colMonth], carry});
-      if(months.length>=12) break;
+      obj.month = monthMap[mName];
+      months.push(obj);
+      if(months.length>=12 && total) break;
     }
 
     const jan = months.find(m=>m.month===1);
     const yearStartSaldo = jan && jan.carry!=null ? jan.carry : 0;
 
+    // second table: day type counts by month
+    let headerIdx2 = -1;
+    for(let i=headerIdx1+1;i<lines.length;i++){
+      const l = lines[i];
+      if(/^Monat/i.test(l) && l.includes('Arbeitszeit') && l.includes('Ferien/Urlaub')){
+        headerIdx2 = i;
+        break;
+      }
+    }
+
+    let counts = null;
+    if(headerIdx2 >= 0){
+      const header2Raw = splitCsvLine(lines[headerIdx2], delim).filter(h=>h!=="");
+      const headers = header2Raw;
+
+      const keys = headers.map(h => {
+        const n = normalizeHeader(h)
+          .replace(/[^a-z0-9]+/g,'_')
+          .replace(/^_+|_+$/g,'');
+        return n || 'col';
+      });
+
+      const months2 = [];
+      let totalRaw = null;
+      let totalByKey = null;
+
+      for(let i=headerIdx2+1;i<lines.length;i++){
+        const cols = splitCsvLine(lines[i], delim);
+        if(cols.length < 2) continue;
+        const m0 = normalizeHeader(cols[0]||"");
+        const valuesRaw = {};
+        const valuesByKey = {};
+        for(let c=0; c<headers.length; c++){
+          const rawVal = (cols[c] ?? '').trim();
+          valuesRaw[headers[c]] = rawVal;
+          const num = parseGermanNumber(rawVal);
+          if(num != null) valuesByKey[keys[c]] = num;
+        }
+
+        if(m0 === 'total'){
+          totalRaw = valuesRaw;
+          totalByKey = valuesByKey;
+          continue;
+        }
+        if(!monthMap[m0]) continue;
+        months2.push({month:monthMap[m0], name:cols[0], valuesRaw, valuesByKey});
+        if(months2.length>=12 && totalRaw) break;
+      }
+
+      counts = {
+        headers,
+        keys,
+        months: months2,
+        totalRaw,
+        totalByKey
+      };
+    }
+
     return {
-      summary: { kind:"year_summary", year, person:name, company, yearStartSaldo, months },
+      summary: { kind:"year_summary", year, person:name, company, yearStartSaldo, months, total, counts },
       errors: []
     };
   }

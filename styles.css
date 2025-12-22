@@ -1,8 +1,8 @@
 :root{
-  --brand-green:#A1C51D;
-  --brand-green-dark:#799215;
-  --brand-red:#C31120;
-  --brand-red-dark:#8A0F18;
+  --brand-green:#8DAB18;
+  --brand-green-dark:#6E8712;
+  --brand-red:#C4111F;
+  --brand-red-dark:#8A1018;
   --bg:#efefef;
   --card:#ffffff;
   --line:#d7d7d7;
@@ -72,15 +72,22 @@ body{
 .mh-left{
   background:#ddd;
   display:flex;
+  flex-direction:column;
   align-items:center;
   justify-content:center;
-  padding:14px 10px;
+  padding:12px 10px;
   border-right:2px solid var(--line);
 }
 .mh-company{
-  font-weight:700;
+  font-weight:800;
   font-size:20px;
   letter-spacing:.2px;
+}
+.mh-person{
+  margin-top:6px;
+  font-weight:800;
+  font-size:14px;
+  color:#222;
 }
 .mh-right{
   background:#e6e6e6;
@@ -107,7 +114,7 @@ body{
   font-size:20px;
 }
 .mh-stats{margin-top:8px; display:grid; gap:4px}
-.stat-row{display:flex; justify-content:space-between; font-size:15px}
+.stat-row{display:flex; justify-content:space-between; font-size:14px}
 .stat-val{font-weight:800}
 .stat-val.good{color:var(--brand-green-dark)}
 .stat-val.bad{color:var(--brand-red)}
@@ -135,16 +142,25 @@ body{
 }
 
 .list{margin-top:8px; border:2px solid var(--line); border-radius:12px; overflow:hidden; background:var(--card)}
+.day-card{
+  border-bottom:1px solid var(--line);
+  background:#fff;
+}
+.day-card:last-child{border-bottom:0}
 .day-item{
   display:grid;
   grid-template-columns: 1fr 120px;
   gap:10px;
   padding:10px 12px;
-  border-bottom:1px solid var(--line);
   cursor:pointer;
-  background: #fff;
+  background:#fff;
 }
-.day-item:last-child{border-bottom:0}
+.day-card.open .day-item{
+  background:#f3f8e2;
+}
+.day-card.open{
+  border-left:6px solid var(--brand-green);
+}
 .day-left .d1{font-weight:800; font-size:16px}
 .day-left .d2{color:#222; margin-top:2px}
 .day-left .d3{color:var(--muted); margin-top:6px}
@@ -170,6 +186,31 @@ body{
   margin-left:6px;
 }
 
+.day-editor-inline{
+  padding:10px 12px 12px;
+  border-top:1px solid var(--line);
+  background:#fff;
+}
+.day-editor-inline .inline-head{
+  display:flex; justify-content:space-between; align-items:center;
+  margin-bottom:10px;
+}
+.day-editor-inline .inline-meta{font-weight:900; color:#222}
+.day-editor-inline .inline-grid{display:grid; gap:10px}
+.inline-row{display:grid; grid-template-columns: 90px 1fr; gap:10px; align-items:center}
+.inline-row.times{grid-template-columns: 90px 1fr 50px 1fr}
+.inline-row label{font-weight:900; color:#222}
+.inline-row .mid{font-weight:900; text-align:center; color:#444}
+.inline-row input, .inline-row select{
+  width:100%; padding:8px 10px; border:1px solid #bbb; border-radius:10px; font-size:15px;
+}
+.inline-row textarea{
+  width:100%; padding:8px 10px; border:1px solid #bbb; border-radius:10px; font-size:15px; resize:vertical;
+}
+.inline-actions{display:flex; gap:8px; margin-top:10px; justify-content:flex-end; flex-wrap:wrap}
+.inline-actions .spacer{flex:1}
+.inline-hint{font-size:12px; color:var(--muted); margin-top:-6px; margin-left:100px}
+
 .editor{
   margin-top:10px;
   border:2px solid var(--line);
@@ -183,7 +224,7 @@ body{
   align-items:center;
   padding:10px 12px;
   background:#ededed;
-  border-bottom:1px solid var(--line);
+  border-bottom:0;
 }
 .editor-title{font-weight:900}
 .editor-week{font-weight:800; color:#444}
@@ -286,7 +327,7 @@ body{
   align-items:center;
   padding:10px 12px;
   background: #eee;
-  border-bottom:1px solid var(--line);
+  border-bottom:0;
 }
 .modal-title{font-weight:900}
 .modal-body{padding:12px}
@@ -351,4 +392,72 @@ body{
   .month-header{grid-template-columns: 1fr 1.4fr}
   .day-item{grid-template-columns: 1fr 110px}
   .row{grid-template-columns: 80px 1fr 40px 1fr}
+}
+
+.day-editor{
+  padding:10px 12px 12px;
+  border-top:1px solid var(--line);
+  background:#fff;
+}
+.day-editor .meta{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:8px;
+}
+.day-editor .meta .small{
+  color:var(--muted);
+  font-weight:700;
+  font-size:12px;
+}
+.day-editor .grid{
+  display:grid;
+  gap:10px;
+}
+.day-editor .block{
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:10px;
+  background:#fff;
+}
+.day-editor .block-title{
+  font-weight:900;
+  margin-bottom:8px;
+}
+.day-editor .row{
+  display:grid;
+  grid-template-columns: 90px 1fr 50px 1fr;
+  gap:8px;
+  align-items:center;
+  margin-bottom:8px;
+}
+.day-editor .row label{
+  font-weight:800;
+  color:#222;
+}
+.day-editor .row label.mid{
+  text-align:center;
+  color:#444;
+}
+.day-editor input, .day-editor select, .day-editor textarea{
+  width:100%;
+  padding:8px 10px;
+  border:1px solid #bbb;
+  border-radius:10px;
+  font-size:15px;
+}
+.day-editor textarea{
+  resize:vertical;
+}
+.day-editor .row input[type="text"]{
+  grid-column:2 / span 3;
+}
+.day-editor .actions{
+  display:flex;
+  gap:8px;
+  margin-top:10px;
+  justify-content:flex-end;
+}
+.day-editor .actions .spacer{
+  flex:1;
 }
