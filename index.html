@@ -181,6 +181,23 @@
     </div>
   </div>
 
+
+  <div class="modal hidden" id="backupModal" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">Backup Erinnerung</div>
+        <button class="icon-btn" id="btnCloseBackup" title="Schließen">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="small" id="backupHint">—</div>
+        <div class="btn-row" style="margin-top:10px">
+          <button class="btn btn-primary" id="btnBackupNow">Backup jetzt (JSON)</button>
+          <button class="btn btn-light" id="btnBackupLater">Später</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="toast hidden" id="toast"></div>
 
   <script src="db.js"></script>

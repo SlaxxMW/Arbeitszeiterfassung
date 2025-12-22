@@ -1,3 +1,8 @@
+## 1.6.0 (2025-12-22)
+- Neu: Auto-Backup Erinnerung (1x pro Woche) mit Popup + "Backup jetzt (JSON)".
+- Fix: Einstellungen-Modal mobil ohne horizontales Verschieben (Overflow-X hidden, File-Input max-width, Import-Vorschau wrap).
+- Info: Offline-Status sichtbar im Header (vX • build • offline).
+
 ## 1.5.9 (2025-12-22)
 - Fix: iPhone Offline-Start zeigt keinen falschen "Service Worker nicht bereit"-Hinweis mehr (SW-Register wird offline nicht als Fehler gewertet).
 

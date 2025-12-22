@@ -4,6 +4,11 @@
 
   const APP_MIN_YEAR = 2025;
 
+  const BACKUP_REMINDER_DAYS = 7;
+  const KEY_FIRST_RUN_AT = 'firstRunAt';
+  const KEY_LAST_BACKUP_AT = 'lastBackupAt';
+  const KEY_LAST_BACKUP_PROMPT_AT = 'lastBackupPromptAt';
+
   const els = (id) => document.getElementById(id);
 
   const $dayList = els('dayList');
@@ -20,6 +25,8 @@
 
   const $settingsModal = els('settingsModal');
   const $importModal = els('importModal');
+  const $backupModal = els('backupModal');
+  const $backupHint = els('backupHint');
   const $toast = els('toast');
   const $updateBanner = els('updateBanner');
   const $updateText = els('updateText');
@@ -1005,6 +1012,43 @@
     return `${pad2(d.getDate())}.${pad2(d.getMonth()+1)}.${d.getFullYear()}`;
   }
 
+  function germanDateFromTs(ts){
+    try{
+      const d = new Date(ts);
+      if(!Number.isFinite(d.getTime())) return '—';
+      return `${pad2(d.getDate())}.${pad2(d.getMonth()+1)}.${d.getFullYear()}`;
+    }catch(_){ return '—'; }
+  }
+
+  async function maybeBackupReminder(){
+    try{
+      const now = Date.now();
+      let firstRun = await AZDB.getSetting(KEY_FIRST_RUN_AT, null);
+      if(!firstRun){
+        await AZDB.setSetting(KEY_FIRST_RUN_AT, now);
+        firstRun = now;
+      }
+      const lastBackup = await AZDB.getSetting(KEY_LAST_BACKUP_AT, 0) || 0;
+      const lastPrompt = await AZDB.getSetting(KEY_LAST_BACKUP_PROMPT_AT, 0) || 0;
+
+      const base = lastBackup > 0 ? lastBackup : firstRun;
+      const msDay = 86400000;
+      const daysSince = Math.floor((now - base) / msDay);
+      const daysSincePrompt = Math.floor((now - lastPrompt) / msDay);
+
+      if(daysSince >= BACKUP_REMINDER_DAYS && daysSincePrompt >= BACKUP_REMINDER_DAYS){
+        const info = lastBackup > 0
+          ? `Letztes Backup: ${germanDateFromTs(lastBackup)}. Bitte sicherheitshalber ein neues Backup speichern.`
+          : `Noch kein Backup gespeichert. Bitte einmal ein Backup sichern (JSON).`;
+        openBackupModal(info);
+        await AZDB.setSetting(KEY_LAST_BACKUP_PROMPT_AT, now);
+      }
+    }catch(e){
+      // never block startup
+      console.warn('backup reminder failed', e);
+    }
+  }
+
   function buildExportMetaLines(exportLabel){
     // Meta-Header für CSV/PDF (wird beim Import automatisch ignoriert)
     const lines = [];
@@ -1119,8 +1163,12 @@ async function exportHandyMonth(){
       const v = await AZDB.getSetting(getYearStartSaldoKey(y), null);
       if(v != null) out.yearStartSaldo[String(y)] = v;
     }
+    try{
+      await AZDB.setSetting(KEY_LAST_BACKUP_AT, Date.now());
+    }catch(_e){}
     AZExport.downloadText(JSON.stringify(out, null, 2), `${settings.person||'Arbeitszeit'}_${settings.company||'Firma'}_Backup.json`, 'application/json;charset=utf-8');
     toast("Backup gespeichert");
+    closeBackupModal();
   }
 
   async function restoreJsonFile(file){
@@ -1457,6 +1505,17 @@ async function exportHandyMonth(){
 
   function closeImport(){ $importModal.classList.add('hidden'); pendingImport = null; }
 
+  function openBackupModal(text){
+    if(!$backupModal) return;
+    if($backupHint) $backupHint.textContent = text || 'Backup empfohlen';
+    $backupModal.classList.remove('hidden');
+  }
+  function closeBackupModal(){
+    if(!$backupModal) return;
+    $backupModal.classList.add('hidden');
+  }
+
+
   // ---- Update / Cache ----
   async function cacheReset(){
     try{
@@ -1553,8 +1612,19 @@ async function exportHandyMonth(){
 
             // offline-ready indicator
       navigator.serviceWorker.ready.then(()=>{
-        try{ const el = document.getElementById('updateInfo'); if(el && !el.textContent.includes('Offline')) el.textContent = (el.textContent? (el.textContent+' • '):'') + 'Offline bereit'; }catch(_e){}
+        window.__AZ_OFFLINE_READY = true;
+        try{
+          if($updateInfo && !$updateInfo.textContent.includes('Offline')){
+            $updateInfo.textContent = ($updateInfo.textContent ? ($updateInfo.textContent + ' • ') : '') + 'Offline bereit';
+          }
+        }catch(_e){}
+        try{
+          if($appVersion && !$appVersion.textContent.includes('offline')){
+            $appVersion.textContent = ($appVersion.textContent ? ($appVersion.textContent + ' • ') : '') + 'offline';
+          }
+        }catch(_e){}
       }).catch(()=>{});
+
 
 navigator.serviceWorker.addEventListener('controllerchange', ()=>{
         // new version active
@@ -1628,6 +1698,11 @@ navigator.serviceWorker.addEventListener('controllerchange', ()=>{
     els('btnExportPdfYear').addEventListener('click', exportPdfYear);
     els('btnExportHandyMonth').addEventListener('click', exportHandyMonth);
     els('btnBackupJson').addEventListener('click', backupJson);
+    // auto-backup reminder modal
+    const _bn = els('btnBackupNow'); if(_bn) _bn.addEventListener('click', backupJson);
+    const _bl = els('btnBackupLater'); if(_bl) _bl.addEventListener('click', closeBackupModal);
+    const _bc = els('btnCloseBackup'); if(_bc) _bc.addEventListener('click', closeBackupModal);
+
     els('btnRestoreJson').addEventListener('click', ()=>els('fileRestoreJson').click());
     els('fileRestoreJson').addEventListener('change', async (e)=>{
       const f = e.target.files && e.target.files[0];
@@ -1682,6 +1757,8 @@ navigator.serviceWorker.addEventListener('controllerchange', ()=>{
     bind();
     registerSW();
     await renderMonth();
+    // remind for backup (weekly)
+    setTimeout(()=>{ maybeBackupReminder(); }, 600);
   }
 
   // global safe init
