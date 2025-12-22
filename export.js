@@ -13,6 +13,12 @@
     const ah = Math.abs(h);
     return sign + ah.toFixed(2).replace(".", ",");
   }
+
+  function formatNumDot(h){
+    const sign = h < 0 ? "-" : "";
+    const ah = Math.abs(h);
+    return sign + ah.toFixed(2); // dot decimal
+  }
   function parseGermanNumber(s){
     if(s==null) return null;
     const t = String(s).trim();
@@ -463,6 +469,52 @@
         (r.notiz||"").replace(/;/g,',')
       ].join(";"));
     }
+
+  function escapeCsvFieldComma(v){
+    if(v === null || v === undefined) return "";
+    const s = String(v);
+    // escape double quotes by doubling them
+    const q = s.replace(/"/g,'""');
+    // wrap in quotes if it contains comma, quote, or newline
+    if(/[",\n\r]/.test(q)) return `"${q}"`;
+    return q;
+  }
+
+  function buildCsvComma(rows, metaPairs){
+    // Comma separated + dot decimals for better iOS/WhatsApp preview compatibility.
+    const headerCols = ["Datum","Wochentag","Typ","Start","Ende","Pause_h","Soll_h","Ist_h","Diff_h","Ort","Notiz"];
+    const lines = [];
+
+    // Meta as proper CSV rows with same column count (prevents broken preview).
+    if(Array.isArray(metaPairs)){
+      for(const it of metaPairs){
+        const row = new Array(headerCols.length).fill("");
+        row[0] = it && it.k ? it.k : "";
+        row[1] = it && it.v ? it.v : "";
+        lines.push(row.map(escapeCsvFieldComma).join(","));
+      }
+      lines.push(new Array(headerCols.length).fill("").join(",")); // blank row
+    }
+
+    lines.push(headerCols.join(","));
+
+    for(const r of rows){
+      lines.push([
+        r.datum,
+        r.wochentag,
+        r.typ,
+        r.start||"",
+        r.ende||"",
+        formatNumDot(parseGermanNumber(r.pause_h) ?? r.pause_h ?? 0),
+        formatNumDot(parseGermanNumber(r.soll_h) ?? r.soll_h ?? 0),
+        formatNumDot(parseGermanNumber(r.ist_h) ?? r.ist_h ?? 0),
+        formatNumDot(parseGermanNumber(r.diff_h) ?? r.diff_h ?? 0),
+        (r.ort||""),
+        (r.notiz||"")
+      ].map(escapeCsvFieldComma).join(","));
+    }
+    return lines.join("\n");
+  }
     return lines.join("\n");
   }
 
@@ -552,9 +604,11 @@
   window.AZExport = {
     formatHours,
     formatNum,
+    formatNumDot,
     parseGermanNumber,
     parseCsv,
     buildCsv,
+    buildCsvComma,
     downloadText,
     downloadBlob,
     createSimplePdf

@@ -1040,6 +1040,43 @@
     toast("CSV Jahr exportiert");
   }
 
+  async function exportCsvMonthMobile(){
+    const y = current.year, m = current.month;
+    const startKey = toKey(y,m,1);
+    const endKey = toKey(y,m,daysInMonth(y,m));
+    const rows = await buildRowsForRange(startKey, endKey);
+    const exportLabel = `Monat ${MONTHS[m-1]} ${y}`;
+    const todayStr = new Date().toLocaleDateString('de-DE');
+    const metaPairs = [
+      {k:'Firma', v: settings.company||'Firma'},
+      {k:'Name', v: settings.person||''},
+      {k:'Export-Datum', v: todayStr},
+      {k:'Export-Typ', v: exportLabel}
+    ];
+    const csv = AZExport.buildCsvComma(rows, metaPairs);
+    AZExport.downloadText(csv, `${settings.person||'Arbeitszeit'}_${settings.company||'Firma'}_Monat_${y}-${pad2(m)}_HANDY.csv`, 'text/csv;charset=utf-8');
+    toast("Handy-CSV Monat exportiert");
+  }
+
+  async function exportCsvYearMobile(){
+    const y = current.year;
+    const startKey = toKey(y,1,1);
+    const endKey = toKey(y,12,31);
+    const rows = await buildRowsForRange(startKey, endKey);
+    const exportLabel = `Jahr ${y}`;
+    const todayStr = new Date().toLocaleDateString('de-DE');
+    const metaPairs = [
+      {k:'Firma', v: settings.company||'Firma'},
+      {k:'Name', v: settings.person||''},
+      {k:'Export-Datum', v: todayStr},
+      {k:'Export-Typ', v: exportLabel}
+    ];
+    const csv = AZExport.buildCsvComma(rows, metaPairs);
+    AZExport.downloadText(csv, `${settings.person||'Arbeitszeit'}_${settings.company||'Firma'}_Jahr_${y}_HANDY.csv`, 'text/csv;charset=utf-8');
+    toast("Handy-CSV Jahr exportiert");
+  }
+
+
   async function exportPdfMonth(){
     const y = current.year, m = current.month;
     const startKey = toKey(y,m,1);
@@ -1053,7 +1090,9 @@
       const pause = (r.typ === 'Arbeitszeit') ? ` | Pause ${r.pause_h} h` : '';
       const ort = r.ort ? ` | ${r.ort}` : '';
       const notiz = r.notiz ? ` | ${r.notiz}` : '';
-      return `${r.datum}  ${r.wochentag}  | ${r.typ} | ${time}${pause}${ort}${notiz}`;
+      const istNum = (typeof r.ist_h === 'number') ? r.ist_h : (AZExport.parseGermanNumber(r.ist_h) ?? 0);
+      const stunden = ` | ${AZExport.formatHours(istNum)}`;
+      return `${r.datum}  ${r.wochentag}  | ${r.typ} | ${time}${pause}${stunden}${ort}${notiz}`;
     });
     const pdf = AZExport.createSimplePdf(title, subtitle, lines);
     AZExport.downloadBlob(pdf, `${settings.person||'Arbeitszeit'}_${settings.company||'Firma'}_${y}-${pad2(m)}.pdf`);
@@ -1073,7 +1112,9 @@
       const pause = (r.typ === 'Arbeitszeit') ? ` | Pause ${r.pause_h} h` : '';
       const ort = r.ort ? ` | ${r.ort}` : '';
       const notiz = r.notiz ? ` | ${r.notiz}` : '';
-      return `${r.datum}  ${r.wochentag}  | ${r.typ} | ${time}${pause}${ort}${notiz}`;
+      const istNum = (typeof r.ist_h === 'number') ? r.ist_h : (AZExport.parseGermanNumber(r.ist_h) ?? 0);
+      const stunden = ` | ${AZExport.formatHours(istNum)}`;
+      return `${r.datum}  ${r.wochentag}  | ${r.typ} | ${time}${pause}${stunden}${ort}${notiz}`;
     });
     const pdf = AZExport.createSimplePdf(title, subtitle, lines);
     AZExport.downloadBlob(pdf, `${settings.person||'Arbeitszeit'}_${settings.company||'Firma'}_${y}.pdf`);
@@ -1579,6 +1620,8 @@
     // export
     els('btnExportCsvMonth').addEventListener('click', exportCsvMonth);
     els('btnExportCsvYear').addEventListener('click', exportCsvYear);
+    els('btnExportCsvMonthMobile').addEventListener('click', exportCsvMonthMobile);
+    els('btnExportCsvYearMobile').addEventListener('click', exportCsvYearMobile);
     els('btnExportPdfMonth').addEventListener('click', exportPdfMonth);
     els('btnExportPdfYear').addEventListener('click', exportPdfYear);
     els('btnBackupJson').addEventListener('click', backupJson);
