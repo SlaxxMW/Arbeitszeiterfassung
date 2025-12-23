@@ -1552,7 +1552,7 @@ async function exportHandyMonth(){
         for(const k of keys) await caches.delete(k);
       }
       toast("Cache/Update-Reset OK – lade neu…");
-      setTimeout(()=>location.reload(), 600);
+      setTimeout(()=>{ const u=new URL(location.href); u.searchParams.set('r', String(Date.now())); location.href=u.toString(); }, 600);
     }catch(e){
       toast("Reset fehlgeschlagen");
     }
@@ -1592,7 +1592,7 @@ async function exportHandyMonth(){
   }
 
   async function updateNow(){
-    if(!('serviceWorker' in navigator)) return location.reload();
+    if(!('serviceWorker' in navigator)) { const u=new URL(location.href); u.searchParams.set('r', String(Date.now())); location.href=u.toString(); return; }
     const reg = await navigator.serviceWorker.getRegistration();
     if(reg && reg.waiting){
       reg.waiting.postMessage({type:'SKIP_WAITING'});
@@ -1601,7 +1601,7 @@ async function exportHandyMonth(){
     }
     // fallback: hard reload
     toast("Neu laden…");
-    setTimeout(()=>location.reload(), 400);
+    setTimeout(()=>{ const u=new URL(location.href); u.searchParams.set('r', String(Date.now())); location.href=u.toString(); }, 400);
   }
 
   function _isStandalone(){
@@ -1684,7 +1684,7 @@ async function exportHandyMonth(){
       return;
     }
 
-    navigator.serviceWorker.register('./sw.js', {scope:'./'}).then((reg)=>{
+    navigator.serviceWorker.register('./sw.js?ver=1.6.4e', {scope:'./'}).then((reg)=>{
       // listen for updates
       reg.addEventListener('updatefound', ()=>{
         const nw = reg.installing;

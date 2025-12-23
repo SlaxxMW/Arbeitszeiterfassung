@@ -1,5 +1,5 @@
 /* sw.js - Service Worker for offline use + update banner support (hardened for Android installability) */
-const APP_VERSION = '1.6.4d';
+const APP_VERSION = '1.6.4e';
 const CACHE_NAME = `az-pwa-${APP_VERSION}`;
 
 // Minimal precache: must never 404, otherwise SW install fails and Android won't offer "Install".
@@ -39,6 +39,22 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
 
   if(url.origin !== self.location.origin) return;
+
+  // version.json: always network-first so UI version updates reliably
+  if(url.pathname.endsWith('/version.json')){
+    event.respondWith((async ()=>{
+      const cache = await caches.open(CACHE_NAME);
+      try{
+        const resp = await fetch(req, {cache:'no-store'});
+        if(resp && resp.ok) await cache.put('./version.json', resp.clone());
+        return resp;
+      }catch(_e){
+        return (await cache.match('./version.json')) || Response.error();
+      }
+    })());
+    return;
+  }
+
 
   // Navigations: network-first with cache fallback (stable for updates)
   if(req.mode === 'navigate'){
