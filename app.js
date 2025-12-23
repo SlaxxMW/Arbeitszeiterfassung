@@ -2,6 +2,21 @@
 (function(){
   'use strict';
 
+  // Ensure canonical trailing slash path for stable scope resolution on GitHub Pages.
+  // If opened as ".../Arbeitszeiterfassung" (without trailing slash), relative SW scope
+  // may resolve incorrectly, preventing SW control and therefore preventing install.
+  try{
+    const p = String(location.pathname||'');
+    const last = p.split('/').pop() || '';
+    const looksLikeFile = last.includes('.');
+    if(!looksLikeFile && p && !p.endsWith('/')){
+      const u = new URL(location.href);
+      u.pathname = p + '/';
+      location.replace(u.toString());
+      return;
+    }
+  }catch(_e){}
+
   const APP_MIN_YEAR = 2025;
 
   const BACKUP_REMINDER_DAYS = 7;
@@ -1684,8 +1699,10 @@ async function exportHandyMonth(){
       return;
     }
 
-    const __base = (new URL('./', location.href)).pathname; // e.g. /Arbeitszeiterfassung/
-    navigator.serviceWorker.register(__base + 'sw.js?ver=1.6.4f', {scope: __base}).then((reg)=>{
+    // Absolute scope/script to avoid path resolution edge-cases on Android/Chrome.
+    const baseScope = new URL('./', location.href).pathname; // e.g. "/Arbeitszeiterfassung/"
+    const swUrl = baseScope + 'sw.js?ver=1.6.4g';
+    navigator.serviceWorker.register(swUrl, {scope: baseScope}).then((reg)=>{
       // listen for updates
       reg.addEventListener('updatefound', ()=>{
         const nw = reg.installing;
@@ -1716,11 +1733,19 @@ async function exportHandyMonth(){
       }).catch(()=>{});
 
 
-navigator.serviceWorker.addEventListener('controllerchange', ()=>{
-        try{ refreshInstallInfo('sw controller'); }catch(_e){}
-        // new version active
-        location.reload();
-      });
+
+	      navigator.serviceWorker.addEventListener('controllerchange', ()=>{
+	        try{ refreshInstallInfo('sw controller'); }catch(_e){}
+	        // One controlled navigation after first claim helps Chrome evaluate installability.
+	        try{
+	          if(!sessionStorage.getItem('az_sw_ctrl_reload')){
+	            sessionStorage.setItem('az_sw_ctrl_reload','1');
+	            const u = new URL(location.href);
+	            u.searchParams.set('r', String(Date.now()));
+	            location.replace(u.toString());
+	          }
+	        }catch(_e){}
+	      });
     }).catch((err)=>{
       console.warn('SW register failed', err);
       // If we're offline, this is expected on some platforms; don't alarm the user.

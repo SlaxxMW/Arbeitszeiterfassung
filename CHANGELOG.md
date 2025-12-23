@@ -1,10 +1,5 @@
 
 
-## 1.6.4f (20251223-android-install-scope-fix)
-- GitHub Pages (/Arbeitszeiterfassung/): Manifest id/start_url/scope fest gesetzt, damit Android Chrome "Installieren" zuverlässig anbietet.
-- Service Worker Registrierung nutzt absolutes Scope aus der aktuellen URL + Version-Query (saubere Updates).
-- Service Worker precache nutzt Scope-absolute URLs (Install-Check scheitert nicht durch Pfad-Mix).
-
 ## 1.6.4a (20251223-084036)
 - Android: Install-Diagnose in Einstellungen (Secure/SW/Controller/Prompt/Standalone) + "App installieren" Button (nur wenn Chrome beforeinstallprompt liefert).
 - Android: optional chaining entfernt (kompatibler bei älteren WebViews).

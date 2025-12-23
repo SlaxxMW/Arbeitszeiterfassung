@@ -1,22 +1,15 @@
-/* sw.js - Service Worker for offline use + update banner support */
-const APP_VERSION = '1.6.4f';
+/* sw.js - Service Worker for offline use + update banner support (hardened for Android installability) */
+const APP_VERSION = '1.6.4g';
 const CACHE_NAME = `az-pwa-${APP_VERSION}`;
-
-// GitHub Pages path-scope fix:
-// Android "Installieren" requires that start_url is controlled by the SW.
-// We therefore precache absolute URLs inside the current registration scope.
-const BASE_PATH = (()=>{
-  try{ return new URL(self.registration.scope).pathname; }catch(_e){ return '/'; }
-})();
 
 // Minimal precache: must never 404, otherwise SW install fails and Android won't offer "Install".
 const PRECACHE_URLS = [
-  BASE_PATH,
-  BASE_PATH + 'index.html',
-  BASE_PATH + 'manifest.webmanifest',
-  BASE_PATH + 'version.json',
-  BASE_PATH + 'icons/icon-192.png',
-  BASE_PATH + 'icons/icon-512.png'
+  './',
+  './index.html',
+  './manifest.webmanifest',
+  './version.json',
+  './icons/icon-192.png',
+  './icons/icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -48,15 +41,15 @@ self.addEventListener('fetch', (event) => {
   if(url.origin !== self.location.origin) return;
 
   // version.json: always network-first so UI version updates reliably
-  if(url.pathname === (BASE_PATH + 'version.json')){
+  if(url.pathname.endsWith('/version.json')){
     event.respondWith((async ()=>{
       const cache = await caches.open(CACHE_NAME);
       try{
         const resp = await fetch(req, {cache:'no-store'});
-        if(resp && resp.ok) await cache.put(BASE_PATH + 'version.json', resp.clone());
+        if(resp && resp.ok) await cache.put('./version.json', resp.clone());
         return resp;
       }catch(_e){
-        return (await cache.match(BASE_PATH + 'version.json')) || Response.error();
+        return (await cache.match('./version.json')) || Response.error();
       }
     })());
     return;
@@ -69,10 +62,10 @@ self.addEventListener('fetch', (event) => {
       const cache = await caches.open(CACHE_NAME);
       try{
         const resp = await fetch(req);
-        if(resp && resp.ok) await cache.put(BASE_PATH + 'index.html', resp.clone());
+        if(resp && resp.ok) await cache.put('./index.html', resp.clone());
         return resp;
       }catch(_e){
-        return (await cache.match(BASE_PATH + 'index.html')) || (await cache.match(BASE_PATH)) || Response.error();
+        return (await cache.match('./index.html')) || (await cache.match('./')) || Response.error();
       }
     })());
     return;
