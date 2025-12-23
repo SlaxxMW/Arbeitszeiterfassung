@@ -1,10 +1,4 @@
 
-
-## 1.6.4a (20251223-084036)
-- Android: Install-Diagnose in Einstellungen (Secure/SW/Controller/Prompt/Standalone) + "App installieren" Button (nur wenn Chrome beforeinstallprompt liefert).
-- Android: optional chaining entfernt (kompatibler bei älteren WebViews).
-- Intern: ServiceWorker Cache-Version auf 1.6.4a (keine Cache-Mix-Zustände).
-
 ## 1.6.3 (20251222-234900)
 - UI: Nicht genutzte Header-Icons entfernt (⤓ Export & ⋮ Menü), damit nur funktionierende Buttons sichtbar sind.
 
@@ -62,11 +56,3 @@
 - Zaunteam-Farben im UI (grün/rot)
 - Update-Anzeige + Update-Button (Service Worker) + Cache/Update-Reset
 - PDF Export (Monat/Jahr) als Download
-
-## 1.6.4b (20251223-090542)
-- Android Layout-Fix: CSS+JS in index.html eingebettet, um Host/MIME/Redirect-Probleme auszuschließen.
-
-
-## 1.6.4d (2025-12-23)
-- Android: Installierbarkeit gehärtet (Manifest+SW Scope/StartURL, Precache minimal, keine Precache-404s)
-- Android/iOS: Layout unverändert (gleich wie 1.6.4b)

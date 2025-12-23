@@ -49,10 +49,6 @@
   const $holidayPreview = els('holidayPreview');
   const $updateInfo = els('updateInfo');
   const $lastBackupInfo = els('lastBackupInfo');
-  const $btnInstallApp = els('btnInstallApp');
-  const $installInfo = els('installInfo');
-
-  let deferredInstallPrompt = null;
 
   // Import fields
   const $fileImportCsv = els('fileImportCsv');
@@ -502,8 +498,7 @@
         const open = $dayList.querySelector('.day-card.open');
         if(open && open !== card){
           open.classList.remove('open');
-          const _edi = open.querySelector('.day-editor-inline');
-          if(_edi) _edi.classList.add('hidden');
+          open.querySelector('.day-editor-inline')?.classList.add('hidden');
         }
         if(isOpen){
           card.classList.remove('open');
@@ -1552,7 +1547,7 @@ async function exportHandyMonth(){
         for(const k of keys) await caches.delete(k);
       }
       toast("Cache/Update-Reset OK – lade neu…");
-      setTimeout(()=>{ const u=new URL(location.href); u.searchParams.set('r', String(Date.now())); location.href=u.toString(); }, 600);
+      setTimeout(()=>location.reload(), 600);
     }catch(e){
       toast("Reset fehlgeschlagen");
     }
@@ -1592,7 +1587,7 @@ async function exportHandyMonth(){
   }
 
   async function updateNow(){
-    if(!('serviceWorker' in navigator)) { const u=new URL(location.href); u.searchParams.set('r', String(Date.now())); location.href=u.toString(); return; }
+    if(!('serviceWorker' in navigator)) return location.reload();
     const reg = await navigator.serviceWorker.getRegistration();
     if(reg && reg.waiting){
       reg.waiting.postMessage({type:'SKIP_WAITING'});
@@ -1601,71 +1596,7 @@ async function exportHandyMonth(){
     }
     // fallback: hard reload
     toast("Neu laden…");
-    setTimeout(()=>{ const u=new URL(location.href); u.searchParams.set('r', String(Date.now())); location.href=u.toString(); }, 400);
-  }
-
-  function _isStandalone(){
-    try{
-      // iOS uses navigator.standalone
-      if(window.navigator && window.navigator.standalone) return true;
-      return window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
-    }catch(_e){
-      return false;
-    }
-  }
-
-  function refreshInstallInfo(extra){
-    try{
-      const parts = [];
-      parts.push('Secure: ' + (window.isSecureContext ? 'yes' : 'no'));
-      parts.push('SW: ' + (('serviceWorker' in navigator) ? 'yes' : 'no'));
-      parts.push('SW ctrl: ' + ((navigator.serviceWorker && navigator.serviceWorker.controller) ? 'yes' : 'no'));
-      parts.push('Standalone: ' + (_isStandalone() ? 'yes' : 'no'));
-      parts.push('Prompt: ' + (deferredInstallPrompt ? 'ready' : 'no'));
-      if(extra) parts.push(String(extra));
-      if($installInfo) $installInfo.textContent = parts.join(' • ');
-      if($btnInstallApp){
-        if(deferredInstallPrompt) $btnInstallApp.classList.remove('hidden');
-        else $btnInstallApp.classList.add('hidden');
-      }
-    }catch(_e){}
-  }
-
-  function initInstallHooks(){
-    try{
-      window.addEventListener('beforeinstallprompt', (e)=>{
-        e.preventDefault();
-        deferredInstallPrompt = e;
-        refreshInstallInfo('beforeinstallprompt');
-      });
-
-      window.addEventListener('appinstalled', ()=>{
-        deferredInstallPrompt = null;
-        refreshInstallInfo('installed');
-        try{ toast('App installiert'); }catch(_e){}
-      });
-
-      if($btnInstallApp){
-        $btnInstallApp.addEventListener('click', async ()=>{
-          if(!deferredInstallPrompt){
-            refreshInstallInfo('no prompt');
-            return;
-          }
-          const p = deferredInstallPrompt;
-          deferredInstallPrompt = null;
-          refreshInstallInfo('prompting');
-          try{
-            await p.prompt();
-            const choice = await p.userChoice;
-            refreshInstallInfo('choice: ' + ((choice && choice.outcome) ? choice.outcome : 'unknown'));
-          }catch(e){
-            refreshInstallInfo('prompt error');
-          }
-        });
-      }
-
-      refreshInstallInfo();
-    }catch(_e){}
+    setTimeout(()=>location.reload(), 400);
   }
 
   function registerSW(){
@@ -1684,7 +1615,7 @@ async function exportHandyMonth(){
       return;
     }
 
-    navigator.serviceWorker.register('./sw.js?ver=1.6.4e', {scope:'./'}).then((reg)=>{
+    navigator.serviceWorker.register('/Zaunplaner/sw.js', {scope:'/Zaunplaner/'}).then((reg)=>{
       // listen for updates
       reg.addEventListener('updatefound', ()=>{
         const nw = reg.installing;
@@ -1701,7 +1632,6 @@ async function exportHandyMonth(){
             // offline-ready indicator
       navigator.serviceWorker.ready.then(()=>{
         window.__AZ_OFFLINE_READY = true;
-        try{ refreshInstallInfo('sw ready'); }catch(_e){}
         try{
           if($updateInfo && !$updateInfo.textContent.includes('Offline')){
             $updateInfo.textContent = ($updateInfo.textContent ? ($updateInfo.textContent + ' • ') : '') + 'Offline bereit';
@@ -1716,7 +1646,6 @@ async function exportHandyMonth(){
 
 
 navigator.serviceWorker.addEventListener('controllerchange', ()=>{
-        try{ refreshInstallInfo('sw controller'); }catch(_e){}
         // new version active
         location.reload();
       });
@@ -1848,7 +1777,6 @@ navigator.serviceWorker.addEventListener('controllerchange', ()=>{
 
     bind();
     registerSW();
-    initInstallHooks();
     await renderMonth();
     // remind for backup (weekly)
     setTimeout(()=>{ maybeBackupReminder(); }, 600);

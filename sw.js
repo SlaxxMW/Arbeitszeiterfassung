@@ -1,15 +1,19 @@
-/* sw.js - Service Worker for offline use + update banner support (hardened for Android installability) */
-const APP_VERSION = '1.6.4e';
+/* sw.js - Service Worker for offline use + update banner support */
+const APP_VERSION = '1.6.3a';
 const CACHE_NAME = `az-pwa-${APP_VERSION}`;
 
-// Minimal precache: must never 404, otherwise SW install fails and Android won't offer "Install".
 const PRECACHE_URLS = [
-  './',
-  './index.html',
-  './manifest.webmanifest',
-  './version.json',
-  './icons/icon-192.png',
-  './icons/icon-512.png'
+  "/Zaunplaner/",
+  "/Zaunplaner/index.html",
+  "/Zaunplaner/styles.css",
+  "/Zaunplaner/app.js",
+  "/Zaunplaner/db.js",
+  "/Zaunplaner/holidays.js",
+  "/Zaunplaner/export.js",
+  "/Zaunplaner/manifest.webmanifest",
+  "/Zaunplaner/version.json",
+  "/Zaunplaner/icons/icon-192.png",
+  "/Zaunplaner/icons/icon-512.png"
 ];
 
 self.addEventListener('install', (event) => {
@@ -38,50 +42,41 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
   const url = new URL(req.url);
 
+  // Only handle same-origin
   if(url.origin !== self.location.origin) return;
 
-  // version.json: always network-first so UI version updates reliably
-  if(url.pathname.endsWith('/version.json')){
-    event.respondWith((async ()=>{
-      const cache = await caches.open(CACHE_NAME);
-      try{
-        const resp = await fetch(req, {cache:'no-store'});
-        if(resp && resp.ok) await cache.put('./version.json', resp.clone());
-        return resp;
-      }catch(_e){
-        return (await cache.match('./version.json')) || Response.error();
-      }
-    })());
-    return;
-  }
-
-
-  // Navigations: network-first with cache fallback (stable for updates)
+  // Navigations -> stale-while-revalidate for index
   if(req.mode === 'navigate'){
     event.respondWith((async ()=>{
       const cache = await caches.open(CACHE_NAME);
-      try{
-        const resp = await fetch(req);
+      const cached = (await cache.match(req, {ignoreSearch:true})) || (await cache.match('./index.html', {ignoreSearch:true})) || (await cache.match('./', {ignoreSearch:true}));
+      const fetchPromise = fetch(req).then(async (resp)=>{
+        // update cache with fresh index
         if(resp && resp.ok) await cache.put('./index.html', resp.clone());
         return resp;
-      }catch(_e){
-        return (await cache.match('./index.html')) || (await cache.match('./')) || Response.error();
-      }
+      }).catch(()=>null);
+
+      return cached || (await fetchPromise) || Response.error();
     })());
     return;
   }
 
-  // Static: cache-first, then network
+  // Static assets -> cache-first, then network, then cache fallback
   event.respondWith((async ()=>{
     const cache = await caches.open(CACHE_NAME);
-    const cached = await cache.match(req);
+    const cached = await cache.match(req, {ignoreSearch:true});
     if(cached) return cached;
     try{
       const resp = await fetch(req);
-      if(resp && resp.ok && req.method === 'GET') await cache.put(req, resp.clone());
+      if(resp && resp.ok){
+        // cache only GET
+        if(req.method === 'GET') await cache.put(req, resp.clone());
+      }
       return resp;
-    }catch(_e){
-      return Response.error();
+    }catch(e){
+      // last resort: try matching by pathname
+      const fallback = await cache.match(url.pathname, {ignoreSearch:true});
+      return fallback || Response.error();
     }
   })());
 });
