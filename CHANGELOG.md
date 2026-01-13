@@ -1,4 +1,14 @@
 
+## 1.7.0 (20250113-zeitraum-csv-backup)
+- **NEU: Zeitraum-Eingabe** für Urlaub/Krankheit - erfasse mehrere Tage auf einmal (Button "📅 Zeitraum" im Header)
+- **VERBESSERT: CSV-Export** - UTF-8 BOM für perfekte Excel-Kompatibilität + bessere Formatierung
+- **NEU: Backup-Warnung vor Updates** - automatische Warnung wenn Backup älter als 7 Tage
+- Fix: CSV-Felder jetzt korrekt escaped (Anführungszeichen)
+- Fix: Windows-Zeilenumbrüche für bessere Excel-Kompatibilität
+
+## 1.6.4g (20251223-sw-ctrl-install)
+- Android: Installierbarkeit gehärtet (Manifest+SW Scope/StartURL, Precache minimal, keine Precache-404s)
+- Android/iOS: Layout unverändert (gleich wie 1.6.4b)
 
 ## 1.6.4a (20251223-084036)
 - Android: Install-Diagnose in Einstellungen (Secure/SW/Controller/Prompt/Standalone) + "App installieren" Button (nur wenn Chrome beforeinstallprompt liefert).
