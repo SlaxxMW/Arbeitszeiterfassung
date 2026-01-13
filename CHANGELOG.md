@@ -1,11 +1,4 @@
 
-## 1.7.1 (20250113-csv-summen)
-- **VERBESSERT: CSV Monat-Export** - enthält jetzt Summenzeilen (Soll/Ist/Diff/S.Vormonat/Saldo) wie im Tool
-- **VERBESSERT: CSV Jahr-Export** - zeigt monatliche Zwischensummen und kumulierte Werte bis zu jedem Monat
-- CSV Jahr: Nach jedem Monat wird die Monatssumme und der kumulierte Stand (bis zu diesem Monat) angezeigt
-- CSV Jahr: Am Ende steht die Jahressumme mit Jahressaldo
-- Perfekt für Übersicht und Buchhaltung!
-
 ## 1.7.0 (20250113-zeitraum-csv-backup)
 - **NEU: Zeitraum-Eingabe** für Urlaub/Krankheit - erfasse mehrere Tage auf einmal (Button "📅 Zeitraum" im Header)
 - **VERBESSERT: CSV-Export** - UTF-8 BOM für perfekte Excel-Kompatibilität + bessere Formatierung

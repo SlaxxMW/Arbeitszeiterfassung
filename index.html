@@ -2587,11 +2587,6 @@ body{
       }
       return carry;
     }
-    
-    // Alias für Export-Funktionen
-    async function calcMonthStartSaldo(year, month){
-      return calcCarryToMonth(year, month);
-    }
   
     async function calcMonthDiff(year, month, opts){
       const dim = daysInMonth(year, month);
@@ -2975,63 +2970,6 @@ body{
       const startKey = toKey(y,m,1);
       const endKey = toKey(y,m,daysInMonth(y,m));
       const rows = await buildRowsForRange(startKey, endKey);
-      
-      // Berechne Monatssummen (wie im Tool angezeigt)
-      let sumSoll = 0, sumIst = 0, sumDiff = 0;
-      for(const r of rows){
-        sumSoll += AZExport.parseGermanNumber(r.soll_h) || 0;
-        sumIst += AZExport.parseGermanNumber(r.ist_h) || 0;
-        sumDiff += AZExport.parseGermanNumber(r.diff_h) || 0;
-      }
-      
-      // Startsaldo für den Monat berechnen
-      const startSaldo = await calcMonthStartSaldo(y, m);
-      const endSaldo = startSaldo + sumDiff;
-      
-      // Füge Summenzeile hinzu
-      rows.push({
-        datum: "",
-        wochentag: "SUMME MONAT",
-        typ: "",
-        start: "",
-        ende: "",
-        pause_h: "",
-        soll_h: AZExport.formatNum(sumSoll),
-        ist_h: AZExport.formatNum(sumIst),
-        diff_h: AZExport.formatNum(sumDiff),
-        ort: "",
-        notiz: ""
-      });
-      
-      // Füge Saldo-Zeilen hinzu
-      rows.push({
-        datum: "",
-        wochentag: "S. Vormonat",
-        typ: "",
-        start: "",
-        ende: "",
-        pause_h: "",
-        soll_h: "",
-        ist_h: "",
-        diff_h: AZExport.formatNum(startSaldo),
-        ort: "",
-        notiz: ""
-      });
-      
-      rows.push({
-        datum: "",
-        wochentag: "SALDO",
-        typ: "",
-        start: "",
-        ende: "",
-        pause_h: "",
-        soll_h: "",
-        ist_h: "",
-        diff_h: AZExport.formatNum(endSaldo),
-        ort: "",
-        notiz: ""
-      });
-      
       const exportLabel = `Monat ${MONTHS[m-1]} ${y}`;
       const meta = buildExportMetaLines(exportLabel).join('\n');
       const csv = meta + "\n" + AZExport.buildCsv(rows);
@@ -3056,101 +2994,12 @@ body{
   
     async function exportCsvYear(){
       const y = current.year;
-      
-      // Baue Jahres-CSV mit monatlichen Zwischensummen
-      const allRows = [];
-      let kumuliertSoll = 0, kumuliertIst = 0, kumuliertDiff = 0;
-      const startSaldoYear = await getYearStartSaldo(y);
-      let laufenderSaldo = startSaldoYear;
-      
-      for(let m = 1; m <= 12; m++){
-        const startKey = toKey(y,m,1);
-        const endKey = toKey(y,m,daysInMonth(y,m));
-        const monthRows = await buildRowsForRange(startKey, endKey);
-        
-        // Berechne Monatssummen
-        let monatSoll = 0, monatIst = 0, monatDiff = 0;
-        for(const r of monthRows){
-          monatSoll += AZExport.parseGermanNumber(r.soll_h) || 0;
-          monatIst += AZExport.parseGermanNumber(r.ist_h) || 0;
-          monatDiff += AZExport.parseGermanNumber(r.diff_h) || 0;
-        }
-        
-        // Addiere zu kumulierten Werten
-        kumuliertSoll += monatSoll;
-        kumuliertIst += monatIst;
-        kumuliertDiff += monatDiff;
-        laufenderSaldo = startSaldoYear + kumuliertDiff;
-        
-        // Füge Tagesdaten hinzu
-        allRows.push(...monthRows);
-        
-        // Füge Monatssumme hinzu (nur wenn Monat Daten hat)
-        if(monthRows.length > 0){
-          allRows.push({
-            datum: "",
-            wochentag: `--- ${MONTHS[m-1].toUpperCase()} ${y} ---`,
-            typ: "",
-            start: "",
-            ende: "",
-            pause_h: "",
-            soll_h: AZExport.formatNum(monatSoll),
-            ist_h: AZExport.formatNum(monatIst),
-            diff_h: AZExport.formatNum(monatDiff),
-            ort: "",
-            notiz: "Monatssumme"
-          });
-          
-          // Füge kumulierte Werte bis zu diesem Monat hinzu
-          allRows.push({
-            datum: "",
-            wochentag: `KUMULIERT BIS ${MONTHS[m-1].toUpperCase()}`,
-            typ: "",
-            start: "",
-            ende: "",
-            pause_h: "",
-            soll_h: AZExport.formatNum(kumuliertSoll),
-            ist_h: AZExport.formatNum(kumuliertIst),
-            diff_h: AZExport.formatNum(kumuliertDiff),
-            ort: "",
-            notiz: `Saldo: ${AZExport.formatNum(laufenderSaldo)} h`
-          });
-          
-          // Leerzeile zur besseren Lesbarkeit
-          allRows.push({
-            datum: "",
-            wochentag: "",
-            typ: "",
-            start: "",
-            ende: "",
-            pause_h: "",
-            soll_h: "",
-            ist_h: "",
-            diff_h: "",
-            ort: "",
-            notiz: ""
-          });
-        }
-      }
-      
-      // Füge Jahressumme hinzu
-      allRows.push({
-        datum: "",
-        wochentag: "========== JAHRESSUMME ==========",
-        typ: "",
-        start: "",
-        ende: "",
-        pause_h: "",
-        soll_h: AZExport.formatNum(kumuliertSoll),
-        ist_h: AZExport.formatNum(kumuliertIst),
-        diff_h: AZExport.formatNum(kumuliertDiff),
-        ort: "",
-        notiz: `Jahressaldo: ${AZExport.formatNum(laufenderSaldo)} h`
-      });
-      
+      const startKey = toKey(y,1,1);
+      const endKey = toKey(y,12,31);
+      const rows = await buildRowsForRange(startKey, endKey);
       const exportLabel = `Jahr ${y}`;
       const meta = buildExportMetaLines(exportLabel).join('\n');
-      const csv = meta + "\n" + AZExport.buildCsv(allRows);
+      const csv = meta + "\n" + AZExport.buildCsv(rows);
       AZExport.downloadText(csv, `${settings.person||'Arbeitszeit'}_${settings.company||'Firma'}_Jahr_${y}.csv`, 'text/csv;charset=utf-8');
       toast("CSV Jahr exportiert");
     }
@@ -3837,7 +3686,7 @@ body{
   
 	      // Absolute scope/script to avoid path resolution edge-cases on Android/Chrome.
 	      const baseScope = new URL('./', location.href).pathname; // e.g. "/Arbeitszeiterfassung/"
-	      const swUrl = baseScope + 'sw.js?ver=1.7.1';
+	      const swUrl = baseScope + 'sw.js?ver=1.7.0';
 	      navigator.serviceWorker.register(swUrl, {scope: baseScope}).then((reg)=>{
         // listen for updates
         reg.addEventListener('updatefound', ()=>{
