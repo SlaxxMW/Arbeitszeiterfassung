@@ -542,7 +542,6 @@ body{
           <div class="stat-row"><span>Krank</span><span class="stat-val" id="statSick">0 Tg</span></div>
 </div>
         <div class="mh-actions">
-          <button class="btn btn-primary" id="btnRangeEntry" title="Urlaub/Krankheit für Zeitraum erfassen">📅 Zeitraum</button>
           <button class="btn btn-light" id="btnYearView">Jahr</button>
           <button class="btn btn-light" id="btnToday">Heute</button>
         </div>
@@ -703,43 +702,6 @@ body{
           <button class="btn btn-primary" id="btnBackupNow">Backup jetzt (JSON)</button>
           <button class="btn btn-light" id="btnBackupLater">Später</button>
         </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal hidden" id="rangeModal" role="dialog" aria-modal="true">
-    <div class="modal-card">
-      <div class="modal-header">
-        <div class="modal-title">Zeitraum erfassen</div>
-        <button class="icon-btn" id="btnCloseRange" title="Schließen">✕</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-row">
-          <label>Von Datum</label>
-          <input type="date" id="rangeStartDate" />
-        </div>
-        <div class="form-row">
-          <label>Bis Datum</label>
-          <input type="date" id="rangeEndDate" />
-        </div>
-        <div class="form-row">
-          <label>Typ</label>
-          <select id="rangeType">
-            <option value="vac">Urlaub</option>
-            <option value="sick">Krank</option>
-            <option value="rest">Ruhetag</option>
-            <option value="comp">Zeitausgleich</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <label>Notiz (optional)</label>
-          <input type="text" id="rangeNote" placeholder="z.B. Sommerurlaub" />
-        </div>
-        <div class="small" id="rangePreview" style="margin-top:10px;padding:10px;background:#f5f5f5;border-radius:8px;">—</div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-light" id="btnCancelRange">Abbrechen</button>
-        <button class="btn btn-primary" id="btnConfirmRange">Erfassen</button>
       </div>
     </div>
   </div>
@@ -1495,9 +1457,7 @@ body{
       setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
     }
     function downloadText(text, filename, mime){
-      // Add UTF-8 BOM for Excel compatibility
-      const BOM = '\uFEFF';
-      const blob = new Blob([BOM + text], {type: mime || 'text/plain;charset=utf-8'});
+      const blob = new Blob([text], {type: mime || 'text/plain;charset=utf-8'});
       downloadBlob(blob, filename);
     }
   
@@ -1515,13 +1475,11 @@ body{
           r.soll_h,
           r.ist_h,
           r.diff_h,
-          // Escape CSV values properly
-          `"${(r.ort||"").replace(/"/g,'""')}"`,
-          `"${(r.notiz||"").replace(/"/g,'""')}"`
+          (r.ort||"").replace(/;/g,','),
+          (r.notiz||"").replace(/;/g,',')
         ].join(";"));
       }
-      return lines.join("\r\n"); // Use Windows line endings for Excel
-    }
+      return lines.join("\n");
     }
   
       /* === PATCHPOINT: BUILD_MOBILE_HTML_REPORT === */
@@ -1910,7 +1868,6 @@ body{
     const $settingsModal = els('settingsModal');
     const $importModal = els('importModal');
     const $backupModal = els('backupModal');
-    const $rangeModal = els('rangeModal');
     const $backupHint = els('backupHint');
     const $toast = els('toast');
     const $updateBanner = els('updateBanner');
@@ -3424,110 +3381,6 @@ body{
       $backupModal.classList.add('hidden');
     }
   
-    // ---- Range Entry (Urlaub/Krankheit Zeitraum) ----
-    function openRangeEntry(){
-      if(!$rangeModal) return;
-      // set defaults
-      const today = new Date();
-      const yyyy = today.getFullYear();
-      const mm = pad2(today.getMonth()+1);
-      const dd = pad2(today.getDate());
-      const todayStr = `${yyyy}-${mm}-${dd}`;
-      
-      els('rangeStartDate').value = todayStr;
-      els('rangeEndDate').value = todayStr;
-      els('rangeType').value = 'vac';
-      els('rangeNote').value = '';
-      els('rangePreview').textContent = '—';
-      
-      $rangeModal.classList.remove('hidden');
-      updateRangePreview();
-    }
-    
-    function closeRangeModal(){
-      if(!$rangeModal) return;
-      $rangeModal.classList.add('hidden');
-    }
-    
-    function updateRangePreview(){
-      const start = els('rangeStartDate').value;
-      const end = els('rangeEndDate').value;
-      const type = els('rangeType').value;
-      
-      if(!start || !end){
-        els('rangePreview').textContent = 'Bitte Von- und Bis-Datum auswählen.';
-        return;
-      }
-      
-      const startD = new Date(start);
-      const endD = new Date(end);
-      
-      if(startD > endD){
-        els('rangePreview').textContent = 'Von-Datum muss vor Bis-Datum liegen.';
-        return;
-      }
-      
-      const days = Math.floor((endD - startD) / (1000*60*60*24)) + 1;
-      const typeText = els('rangeType').selectedOptions[0].textContent;
-      
-      els('rangePreview').textContent = `${days} Tag(e) als ${typeText} erfassen (${start} bis ${end})`;
-    }
-    
-    async function confirmRangeEntry(){
-      const start = els('rangeStartDate').value;
-      const end = els('rangeEndDate').value;
-      const type = els('rangeType').value;
-      const note = els('rangeNote').value.trim();
-      
-      if(!start || !end){
-        toast('Bitte Von- und Bis-Datum auswählen');
-        return;
-      }
-      
-      const startD = new Date(start);
-      const endD = new Date(end);
-      
-      if(startD > endD){
-        toast('Von-Datum muss vor Bis-Datum liegen');
-        return;
-      }
-      
-      // save all days in range
-      let saved = 0;
-      const currentD = new Date(startD);
-      
-      while(currentD <= endD){
-        const y = currentD.getFullYear();
-        const m = currentD.getMonth()+1;
-        const d = currentD.getDate();
-        const key = toKey(y, m, d);
-        
-        const rec = {
-          date: key,
-          type: type,
-          start: '',
-          end: '',
-          breakH: 0,
-          place: '',
-          note: note,
-          updatedAt: new Date().toISOString()
-        };
-        
-        await AZDB.setDay(rec);
-        saved++;
-        
-        currentD.setDate(currentD.getDate() + 1);
-      }
-      
-      toast(`${saved} Tag(e) erfasst`);
-      closeRangeModal();
-      
-      // jump to month of first day
-      const {y, m} = parseKey(toKey(startD.getFullYear(), startD.getMonth()+1, startD.getDate()));
-      current.year = y;
-      current.month = m;
-      await renderMonth();
-    }
   
     // ---- Update / Cache ----
     async function cacheReset(){
@@ -3581,17 +3434,6 @@ body{
     }
   
     async function updateNow(){
-      // Check if backup is recent
-      const lastBackup = await AZDB.getSetting(KEY_LAST_BACKUP_AT, null);
-      const now = Date.now();
-      
-      if(!lastBackup || (now - lastBackup) > BACKUP_REMINDER_DAYS * 24 * 60 * 60 * 1000){
-        if(!confirm('⚠️ WICHTIG: Dein letztes Backup ist älter als 7 Tage!\n\nMöchtest du vor dem Update ein Backup machen?\n\n(Klicke "Abbrechen" um zuerst ein Backup zu erstellen, oder "OK" um ohne Backup fortzufahren)')){
-          toast('Update abgebrochen – bitte erstelle zuerst ein Backup in den Einstellungen');
-          return;
-        }
-      }
-      
       if(!('serviceWorker' in navigator)) return location.reload();
       const reg = await navigator.serviceWorker.getRegistration();
       if(reg && reg.waiting){
@@ -3686,7 +3528,7 @@ body{
   
 	      // Absolute scope/script to avoid path resolution edge-cases on Android/Chrome.
 	      const baseScope = new URL('./', location.href).pathname; // e.g. "/Arbeitszeiterfassung/"
-	      const swUrl = baseScope + 'sw.js?ver=1.7.0';
+	      const swUrl = baseScope + 'sw.js?ver=1.6.4g';
 	      navigator.serviceWorker.register(swUrl, {scope: baseScope}).then((reg)=>{
         // listen for updates
         reg.addEventListener('updatefound', ()=>{
@@ -3802,15 +3644,6 @@ body{
       const _bn = els('btnBackupNow'); if(_bn) _bn.addEventListener('click', backupJson);
       const _bl = els('btnBackupLater'); if(_bl) _bl.addEventListener('click', closeBackupModal);
       const _bc = els('btnCloseBackup'); if(_bc) _bc.addEventListener('click', closeBackupModal);
-  
-      // range entry modal
-      els('btnRangeEntry').addEventListener('click', openRangeEntry);
-      els('btnCloseRange').addEventListener('click', closeRangeModal);
-      els('btnCancelRange').addEventListener('click', closeRangeModal);
-      els('btnConfirmRange').addEventListener('click', confirmRangeEntry);
-      els('rangeStartDate').addEventListener('change', updateRangePreview);
-      els('rangeEndDate').addEventListener('change', updateRangePreview);
-      els('rangeType').addEventListener('change', updateRangePreview);
   
       els('btnRestoreJson').addEventListener('click', ()=>els('fileRestoreJson').click());
       els('fileRestoreJson').addEventListener('change', async (e)=>{

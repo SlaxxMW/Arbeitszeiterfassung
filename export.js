@@ -441,45 +441,29 @@
     setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
   }
   function downloadText(text, filename, mime){
-    // UTF-8 BOM für CSV-Dateien hinzufügen (Excel-Kompatibilität)
-    let content = text;
-    if(mime && mime.includes('csv') && !text.startsWith('\uFEFF')){
-      content = '\uFEFF' + text;
-    }
-    const blob = new Blob([content], {type: mime || 'text/plain;charset=utf-8'});
+    const blob = new Blob([text], {type: mime || 'text/plain;charset=utf-8'});
     downloadBlob(blob, filename);
   }
 
-  function escapeCsvField(val){
-    // Konvertiere zu String und behandle null/undefined
-    const s = String(val ?? '');
-    // Wenn der Wert Semikolon, Anführungszeichen, oder Zeilenumbruch enthält -> in Anführungszeichen setzen
-    if(s.includes(';') || s.includes('"') || s.includes('\n') || s.includes('\r')){
-      // Anführungszeichen innerhalb des Wertes verdoppeln
-      return '"' + s.replace(/"/g, '""') + '"';
-    }
-    return s;
-  }
-
   function buildCsv(rows){
-    const header = ["Datum","Wochentag","Typ","Start","Ende","Pause (h)","Soll (h)","Ist (h)","Diff (h)","Ort","Notiz"].join(";");
+    const header = ["Datum","Wochentag","Typ","Start","Ende","Pause_h","Soll_h","Ist_h","Diff_h","Ort","Notiz"].join(";");
     const lines = [header];
     for(const r of rows){
       lines.push([
-        escapeCsvField(r.datum),
-        escapeCsvField(r.wochentag),
-        escapeCsvField(r.typ),
-        escapeCsvField(r.start||""),
-        escapeCsvField(r.ende||""),
-        escapeCsvField(r.pause_h),
-        escapeCsvField(r.soll_h),
-        escapeCsvField(r.ist_h),
-        escapeCsvField(r.diff_h),
-        escapeCsvField(r.ort||""),
-        escapeCsvField(r.notiz||"")
+        r.datum,
+        r.wochentag,
+        r.typ,
+        r.start||"",
+        r.ende||"",
+        r.pause_h,
+        r.soll_h,
+        r.ist_h,
+        r.diff_h,
+        (r.ort||"").replace(/;/g,','),
+        (r.notiz||"").replace(/;/g,',')
       ].join(";"));
     }
-    return lines.join("\r\n");
+    return lines.join("\n");
   }
 
     /* === PATCHPOINT: BUILD_MOBILE_HTML_REPORT === */
