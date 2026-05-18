@@ -1,0 +1,38 @@
+{
+  "name": "Arbeitszeiterfassung DEV",
+  "short_name": "AZ DEV",
+  "id": "/Arbeitszeiterfassung/dev/",
+  "start_url": "/Arbeitszeiterfassung/dev/?source=pwa",
+  "scope": "/Arbeitszeiterfassung/dev/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "background_color": "#f5f5f5",
+  "theme_color": "#A1C51D",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "../icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "../icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
