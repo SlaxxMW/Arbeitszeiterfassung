@@ -1,5 +1,5 @@
 /* DEV Service Worker - isolated cache for /dev/ PWA */
-const APP_VERSION = '1.6.4g-dev1';
+const APP_VERSION = '1.6.4g-dev3-basis';
 const CACHE_NAME = `azdev-pwa-${APP_VERSION}`;
 
 const PRECACHE_URLS = [
