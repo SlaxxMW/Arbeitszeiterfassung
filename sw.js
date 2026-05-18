@@ -1,5 +1,5 @@
-/* sw.js - Service Worker for offline use + weekly target-hours + default time runtime patches */
-const APP_VERSION = '1.6.5-weekly-soll-default-time';
+/* sw.js - Service Worker for offline use + weekly target-hours + robust default time runtime patches */
+const APP_VERSION = '1.6.5-weekly-soll-default-time2';
 const CACHE_NAME = `az-pwa-${APP_VERSION}`;
 
 const PRECACHE_URLS = [
@@ -73,18 +73,19 @@ function patchWeeklySoll(html){
 "        await AZDB.setSetting('vacationPerYear', data.settings.vacationPerYear ?? 30);\n        await AZDB.setSetting('weeklySollHours', normalizeWeeklySollHours(data.settings.weeklySollHours ?? 40));");
   }
 
-  if(!html.includes('AZ_DEFAULT_TIME_PATCH')){
+  if(!html.includes('AZ_DEFAULT_TIME_PATCH_V2')){
     html = replaceOnce(html,
 "    function bind(){",
-"    function installDefaultTimePatch(){\n      if(window.AZ_DEFAULT_TIME_PATCH) return;\n      window.AZ_DEFAULT_TIME_PATCH = true;\n      document.addEventListener('focusin', (ev)=>{\n        const el = ev.target;\n        if(!el || el.tagName !== 'INPUT' || el.type !== 'time' || el.value) return;\n        if(el.classList.contains('in-start')) el.value = '07:00';\n        if(el.classList.contains('in-end')) el.value = '16:00';\n      }, true);\n      document.addEventListener('click', (ev)=>{\n        const el = ev.target;\n        if(!el || el.tagName !== 'INPUT' || el.type !== 'time' || el.value) return;\n        if(el.classList.contains('in-start')) el.value = '07:00';\n        if(el.classList.contains('in-end')) el.value = '16:00';\n      }, true);\n    }\n\n    function bind(){");
+"    function installDefaultTimePatch(){\n      if(window.AZ_DEFAULT_TIME_PATCH_V2) return;\n      window.AZ_DEFAULT_TIME_PATCH_V2 = true;\n      function fillDefaultTimes(el){\n        if(!el || el.tagName !== 'INPUT' || el.type !== 'time') return;\n        const box = el.closest('.day-editor-inline') || el.closest('.day-editor') || document;\n        const start = box.querySelector ? box.querySelector('input.in-start, input[class*=\\\"start\\\"][type=\\\"time\\\"]') : null;\n        const end = box.querySelector ? box.querySelector('input.in-end, input[class*=\\\"end\\\"][type=\\\"time\\\"]') : null;\n        if(start && !start.value && !start.disabled) start.value = '07:00';\n        if(end && !end.value && !end.disabled) end.value = '16:00';\n        if(!start && el.classList.contains('in-start') && !el.value && !el.disabled) el.value = '07:00';\n        if(!end && el.classList.contains('in-end') && !el.value && !el.disabled) el.value = '16:00';\n      }\n      ['pointerdown','touchstart','mousedown','focusin','click'].forEach((name)=>{\n        document.addEventListener(name, (ev)=>fillDefaultTimes(ev.target), true);\n      });\n    }\n\n    function bind(){");
 
     html = replaceOnce(html,
 "      // update banner\n      els('btnUpdateNow').addEventListener('click', updateNow);",
 "      installDefaultTimePatch();\n\n      // update banner\n      els('btnUpdateNow').addEventListener('click', updateNow);");
   }
 
-  html = html.replace("const swUrl = baseScope + 'sw.js?ver=1.6.4g';", "const swUrl = baseScope + 'sw.js?ver=1.6.5-weekly-soll-default-time';");
-  html = html.replace("const swUrl = baseScope + 'sw.js?ver=1.6.5-weekly-soll';", "const swUrl = baseScope + 'sw.js?ver=1.6.5-weekly-soll-default-time';");
+  html = html.replace("const swUrl = baseScope + 'sw.js?ver=1.6.4g';", "const swUrl = baseScope + 'sw.js?ver=1.6.5-weekly-soll-default-time2';");
+  html = html.replace("const swUrl = baseScope + 'sw.js?ver=1.6.5-weekly-soll';", "const swUrl = baseScope + 'sw.js?ver=1.6.5-weekly-soll-default-time2';");
+  html = html.replace("const swUrl = baseScope + 'sw.js?ver=1.6.5-weekly-soll-default-time';", "const swUrl = baseScope + 'sw.js?ver=1.6.5-weekly-soll-default-time2';");
   return html;
 }
 
