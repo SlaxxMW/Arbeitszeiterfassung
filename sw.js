@@ -1,5 +1,5 @@
-/* sw.js - Service Worker for offline use + weekly target-hours runtime patch */
-const APP_VERSION = '1.6.5-weekly-soll';
+/* sw.js - Service Worker for offline use + weekly target-hours + default time runtime patches */
+const APP_VERSION = '1.6.5-weekly-soll-default-time';
 const CACHE_NAME = `az-pwa-${APP_VERSION}`;
 
 const PRECACHE_URLS = [
@@ -18,9 +18,9 @@ function replaceOnce(html, search, replacement){
 
 function patchWeeklySoll(html){
   if(!html || !html.includes('Arbeitszeiterfassung')) return html;
-  if(html.includes('setWeeklySollHours')) return html;
 
-  html = replaceOnce(html,
+  if(!html.includes('setWeeklySollHours')){
+    html = replaceOnce(html,
 `        <div class="form-row">
           <label>Startsaldo Jahr (Stunden)</label>`,
 `        <div class="form-row">
@@ -32,47 +32,59 @@ function patchWeeklySoll(html){
         <div class="form-row">
           <label>Startsaldo Jahr (Stunden)</label>`);
 
-  html = replaceOnce(html,
+    html = replaceOnce(html,
 "    const $setVacationPerYear = els('setVacationPerYear');",
 "    const $setVacationPerYear = els('setVacationPerYear');\n    const $setWeeklySollHours = els('setWeeklySollHours');");
 
-  html = replaceOnce(html,
+    html = replaceOnce(html,
 "    function getYearStartSaldoKey(year){ return `yearStartSaldo_${year}`; }",
 "    function getYearStartSaldoKey(year){ return `yearStartSaldo_${year}`; }\n\n    function normalizeWeeklySollHours(value){\n      const n = Number(value);\n      if(!Number.isFinite(n) || n < 0) return 40;\n      return Math.round(n * 4) / 4;\n    }\n\n    function dailySollFromWeekly(){\n      const weekly = settings ? normalizeWeeklySollHours(settings.weeklySollHours) : 40;\n      return Math.round((weekly / 5) * 100) / 100;\n    }");
 
-  html = replaceOnce(html,
+    html = replaceOnce(html,
 "      const vacationPerYear = await AZDB.getSetting('vacationPerYear', 30);\n      const useYearSummaryMonthly = await AZDB.getSetting('useYearSummaryMonthly', true);",
 "      const vacationPerYear = await AZDB.getSetting('vacationPerYear', 30);\n      const weeklySollHours = await AZDB.getSetting('weeklySollHours', 40);\n      const useYearSummaryMonthly = await AZDB.getSetting('useYearSummaryMonthly', true);");
 
-  html = replaceOnce(html,
+    html = replaceOnce(html,
 "      settings = { company, person, state, assumption: !!assumption, augsburg: !!augsburg, vacationPerYear: parseInt(vacationPerYear,10) || 30, useYearSummaryMonthly: !!useYearSummaryMonthly };",
 "      settings = { company, person, state, assumption: !!assumption, augsburg: !!augsburg, vacationPerYear: parseInt(vacationPerYear,10) || 30, weeklySollHours: normalizeWeeklySollHours(weeklySollHours), useYearSummaryMonthly: !!useYearSummaryMonthly };");
 
-  html = replaceOnce(html,
+    html = replaceOnce(html,
 "      settings.vacationPerYear = parseInt($setVacationPerYear.value,10) || 30;\n      settings.useYearSummaryMonthly = $setUseYearSummaryMonthly ? !!$setUseYearSummaryMonthly.checked : true;",
 "      settings.vacationPerYear = parseInt($setVacationPerYear.value,10) || 30;\n      settings.weeklySollHours = normalizeWeeklySollHours($setWeeklySollHours ? $setWeeklySollHours.value : 40);\n      settings.useYearSummaryMonthly = $setUseYearSummaryMonthly ? !!$setUseYearSummaryMonthly.checked : true;");
 
-  html = replaceOnce(html,
+    html = replaceOnce(html,
 "      await AZDB.setSetting('vacationPerYear', settings.vacationPerYear);\n      await AZDB.setSetting('useYearSummaryMonthly', settings.useYearSummaryMonthly);",
 "      await AZDB.setSetting('vacationPerYear', settings.vacationPerYear);\n      await AZDB.setSetting('weeklySollHours', settings.weeklySollHours);\n      await AZDB.setSetting('useYearSummaryMonthly', settings.useYearSummaryMonthly);");
 
-  html = replaceOnce(html,
+    html = replaceOnce(html,
 "      $setVacationPerYear.value = settings.vacationPerYear;\n      if($setUseYearSummaryMonthly) $setUseYearSummaryMonthly.checked = !!settings.useYearSummaryMonthly;",
 "      $setVacationPerYear.value = settings.vacationPerYear;\n      if($setWeeklySollHours) $setWeeklySollHours.value = normalizeWeeklySollHours(settings.weeklySollHours);\n      if($setUseYearSummaryMonthly) $setUseYearSummaryMonthly.checked = !!settings.useYearSummaryMonthly;");
 
-  html = replaceOnce(html,
+    html = replaceOnce(html,
 "    function baseSollHours(key){\n      return isWeekend(key) ? 0 : 8;\n    }",
 "    function baseSollHours(key){\n      return isWeekend(key) ? 0 : dailySollFromWeekly();\n    }");
 
-  html = replaceOnce(html,
+    html = replaceOnce(html,
 "          vacationPerYear: settings.vacationPerYear\n        },",
 "          vacationPerYear: settings.vacationPerYear,\n          weeklySollHours: normalizeWeeklySollHours(settings.weeklySollHours)\n        },");
 
-  html = replaceOnce(html,
+    html = replaceOnce(html,
 "        await AZDB.setSetting('vacationPerYear', data.settings.vacationPerYear ?? 30);",
 "        await AZDB.setSetting('vacationPerYear', data.settings.vacationPerYear ?? 30);\n        await AZDB.setSetting('weeklySollHours', normalizeWeeklySollHours(data.settings.weeklySollHours ?? 40));");
+  }
 
-  html = html.replace("const swUrl = baseScope + 'sw.js?ver=1.6.4g';", "const swUrl = baseScope + 'sw.js?ver=1.6.5-weekly-soll';");
+  if(!html.includes('AZ_DEFAULT_TIME_PATCH')){
+    html = replaceOnce(html,
+"    function bind(){",
+"    function installDefaultTimePatch(){\n      if(window.AZ_DEFAULT_TIME_PATCH) return;\n      window.AZ_DEFAULT_TIME_PATCH = true;\n      document.addEventListener('focusin', (ev)=>{\n        const el = ev.target;\n        if(!el || el.tagName !== 'INPUT' || el.type !== 'time' || el.value) return;\n        if(el.classList.contains('in-start')) el.value = '07:00';\n        if(el.classList.contains('in-end')) el.value = '16:00';\n      }, true);\n      document.addEventListener('click', (ev)=>{\n        const el = ev.target;\n        if(!el || el.tagName !== 'INPUT' || el.type !== 'time' || el.value) return;\n        if(el.classList.contains('in-start')) el.value = '07:00';\n        if(el.classList.contains('in-end')) el.value = '16:00';\n      }, true);\n    }\n\n    function bind(){");
+
+    html = replaceOnce(html,
+"      // update banner\n      els('btnUpdateNow').addEventListener('click', updateNow);",
+"      installDefaultTimePatch();\n\n      // update banner\n      els('btnUpdateNow').addEventListener('click', updateNow);");
+  }
+
+  html = html.replace("const swUrl = baseScope + 'sw.js?ver=1.6.4g';", "const swUrl = baseScope + 'sw.js?ver=1.6.5-weekly-soll-default-time';");
+  html = html.replace("const swUrl = baseScope + 'sw.js?ver=1.6.5-weekly-soll';", "const swUrl = baseScope + 'sw.js?ver=1.6.5-weekly-soll-default-time';");
   return html;
 }
 
