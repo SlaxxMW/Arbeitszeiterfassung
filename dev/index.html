@@ -22,6 +22,13 @@
   <script>
   (async function(){
     const err = document.getElementById('err');
+    const DEV_VERSION = '1.6.4g-dev2-weeklysoll';
+    function mustReplace(html, search, replacement, label){
+      const before = html;
+      html = html.replace(search, replacement);
+      if(before === html) throw new Error('DEV-Patch fehlgeschlagen: ' + label);
+      return html;
+    }
     try{
       const res = await fetch('../index.html?t=' + Date.now(), {cache:'no-store'});
       if(!res.ok) throw new Error('Original-App konnte nicht geladen werden: HTTP ' + res.status);
@@ -29,14 +36,79 @@
 
       const devCss = `\n<style>\n.dev-banner{position:sticky;top:0;z-index:10000;background:#ffd84d;color:#111;border-bottom:2px solid #111;text-align:center;font-weight:900;padding:8px 10px;font-size:14px}\n</style>\n`;
       html = html.replace('<title>Arbeitszeiterfassung</title>', '<title>Arbeitszeiterfassung DEV</title>');
-      html = html.replace('<link rel="manifest" href="manifest.webmanifest" />', '<link rel="manifest" href="manifest.webmanifest" />');
       html = html.replace('<link rel="icon" href="icons/icon-192.png" />', '<link rel="icon" href="../icons/icon-192.png" />');
       html = html.replace('</head>', devCss + '</head>');
-      html = html.replace('<body>', '<body><div class="dev-banner">TESTAPP · getrennte Datenbank · getrennte Installation · alte JSON-Backups hier gefahrlos testen</div>');
+      html = html.replace('<body>', '<body><div class="dev-banner">TESTAPP · getrennte Datenbank · wöchentliche Sollzeit DEV · alte JSON-Backups hier gefahrlos testen</div>');
       html = html.replace('<div class="app-title">Arbeitszeiterfassung</div>', '<div class="app-title">Arbeitszeiterfassung DEV</div>');
-      html = html.replace("const DB_NAME = 'az_pwa_db';", "const DB_NAME = 'az_pwa_db_dev';");
-      html = html.replace("const VERSION_FALLBACK = '1.6.4g';", "const VERSION_FALLBACK = '1.6.4g-dev1';");
-      html = html.replace("const swUrl = baseScope + 'sw.js?ver=1.6.4g';", "const swUrl = baseScope + 'sw.js?ver=1.6.4g-dev1';");
+      html = mustReplace(html, "const DB_NAME = 'az_pwa_db';", "const DB_NAME = 'az_pwa_db_dev';", 'eigene DEV IndexedDB');
+      html = html.replace("const swUrl = baseScope + 'sw.js?ver=1.6.4g';", "const swUrl = baseScope + 'sw.js?ver=" + DEV_VERSION + "';");
+
+      // UI: neue Einstellung additiv einfügen.
+      html = mustReplace(html,
+`        <div class="form-row">
+          <label>Startsaldo Jahr (Stunden)</label>`,
+`        <div class="form-row">
+          <label>Wöchentliche Sollzeit</label>
+          <input type="number" id="setWeeklySollHours" min="0" max="80" step="0.25" />
+          <div class="small">Standard: 40 h/Woche. Die App verteilt den Wert auf Montag–Freitag. Beispiel: 30 h/Woche = 6 h Soll pro Werktag. Bereits eingetragene Zeiten werden beim Speichern automatisch neu berechnet, ohne Tagesdaten zu verändern.</div>
+        </div>
+
+        <div class="form-row">
+          <label>Startsaldo Jahr (Stunden)</label>`, 'UI Feld wöchentliche Sollzeit');
+
+      // JS: Elementreferenz.
+      html = mustReplace(html,
+"    const $setVacationPerYear = els('setVacationPerYear');",
+"    const $setVacationPerYear = els('setVacationPerYear');\n    const $setWeeklySollHours = els('setWeeklySollHours');",
+'Elementreferenz weeklySoll');
+
+      // JS: Normalisierer nach getYearStartSaldoKey einfügen.
+      html = mustReplace(html,
+"    function getYearStartSaldoKey(year){ return `yearStartSaldo_${year}`; }",
+"    function getYearStartSaldoKey(year){ return `yearStartSaldo_${year}`; }\n\n    function normalizeWeeklySollHours(value){\n      const n = Number(value);\n      if(!Number.isFinite(n) || n < 0) return 40;\n      return Math.round(n * 4) / 4;\n    }\n\n    function dailySollFromWeekly(){\n      const weekly = settings ? normalizeWeeklySollHours(settings.weeklySollHours) : 40;\n      return Math.round((weekly / 5) * 100) / 100;\n    }",
+'weeklySoll Normalisierer');
+
+      // JS: Settings laden.
+      html = mustReplace(html,
+"      const vacationPerYear = await AZDB.getSetting('vacationPerYear', 30);\n      const useYearSummaryMonthly = await AZDB.getSetting('useYearSummaryMonthly', true);",
+"      const vacationPerYear = await AZDB.getSetting('vacationPerYear', 30);\n      const weeklySollHours = await AZDB.getSetting('weeklySollHours', 40);\n      const useYearSummaryMonthly = await AZDB.getSetting('useYearSummaryMonthly', true);",
+'weeklySoll laden');
+      html = mustReplace(html,
+"settings = { company, person, state, assumption: !!assumption, augsburg: !!augsburg, vacationPerYear: parseInt(vacationPerYear,10) || 30, useYearSummaryMonthly: !!useYearSummaryMonthly };",
+"settings = { company, person, state, assumption: !!assumption, augsburg: !!augsburg, vacationPerYear: parseInt(vacationPerYear,10) || 30, weeklySollHours: normalizeWeeklySollHours(weeklySollHours), useYearSummaryMonthly: !!useYearSummaryMonthly };",
+'weeklySoll in settings');
+
+      // JS: Settings speichern.
+      html = mustReplace(html,
+"      settings.vacationPerYear = parseInt($setVacationPerYear.value,10) || 30;\n      settings.useYearSummaryMonthly = $setUseYearSummaryMonthly ? !!$setUseYearSummaryMonthly.checked : true;",
+"      settings.vacationPerYear = parseInt($setVacationPerYear.value,10) || 30;\n      settings.weeklySollHours = normalizeWeeklySollHours($setWeeklySollHours ? $setWeeklySollHours.value : 40);\n      settings.useYearSummaryMonthly = $setUseYearSummaryMonthly ? !!$setUseYearSummaryMonthly.checked : true;",
+'weeklySoll speichern state');
+      html = mustReplace(html,
+"      await AZDB.setSetting('vacationPerYear', settings.vacationPerYear);\n      await AZDB.setSetting('useYearSummaryMonthly', settings.useYearSummaryMonthly);",
+"      await AZDB.setSetting('vacationPerYear', settings.vacationPerYear);\n      await AZDB.setSetting('weeklySollHours', settings.weeklySollHours);\n      await AZDB.setSetting('useYearSummaryMonthly', settings.useYearSummaryMonthly);",
+'weeklySoll speichern DB');
+
+      // JS: Settings öffnen.
+      html = mustReplace(html,
+"      $setVacationPerYear.value = settings.vacationPerYear;\n      if($setUseYearSummaryMonthly) $setUseYearSummaryMonthly.checked = !!settings.useYearSummaryMonthly;",
+"      $setVacationPerYear.value = settings.vacationPerYear;\n      if($setWeeklySollHours) $setWeeklySollHours.value = normalizeWeeklySollHours(settings.weeklySollHours);\n      if($setUseYearSummaryMonthly) $setUseYearSummaryMonthly.checked = !!settings.useYearSummaryMonthly;",
+'weeklySoll Feld füllen');
+
+      // JS: Basis-Soll dynamisch machen.
+      html = mustReplace(html,
+"    function baseSollHours(key){\n      return isWeekend(key) ? 0 : 8;\n    }",
+"    function baseSollHours(key){\n      return isWeekend(key) ? 0 : dailySollFromWeekly();\n    }",
+'dynamisches Tages-Soll');
+
+      // JS: Backup enthält neue Einstellung, alte Backups ohne Feld bleiben kompatibel.
+      html = mustReplace(html,
+"          vacationPerYear: settings.vacationPerYear\n        },",
+"          vacationPerYear: settings.vacationPerYear,\n          weeklySollHours: normalizeWeeklySollHours(settings.weeklySollHours)\n        },",
+'Backup weeklySoll export');
+      html = mustReplace(html,
+"        await AZDB.setSetting('vacationPerYear', data.settings.vacationPerYear ?? 30);",
+"        await AZDB.setSetting('vacationPerYear', data.settings.vacationPerYear ?? 30);\n        await AZDB.setSetting('weeklySollHours', normalizeWeeklySollHours(data.settings.weeklySollHours ?? 40));",
+'Restore weeklySoll Import');
 
       document.open();
       document.write(html);
