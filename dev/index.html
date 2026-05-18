@@ -1,0 +1,1432 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#A1C51D" />
+  <title>Arbeitszeiterfassung DEV</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="../icons/icon-192.png" />
+  <style>
+:root{
+  --brand-green:#8DAB18;
+  --brand-green-dark:#6E8712;
+  --brand-red:#C4111F;
+  --brand-red-dark:#8A1018;
+  --bg:#efefef;
+  --card:#ffffff;
+  --line:#d7d7d7;
+  --text:#111;
+  --muted:#666;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+  background: var(--bg);
+  color: var(--text);
+  overflow-x:hidden;
+}
+
+.hidden{display:none !important;}
+
+.appbar{
+  position:sticky;
+  top:0;
+  z-index:50;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:10px 12px;
+  background:#111;
+  color:#fff;
+}
+.app-title{font-weight:700; font-size:18px; line-height:1.1}
+.app-subtitle{font-size:12px; opacity:.8; margin-top:2px}
+.appbar-left{display:flex; flex-direction:column}
+.appbar-right{display:flex; gap:8px}
+.icon-btn{
+  appearance:none; border:0; background:transparent; color:#fff;
+  font-size:18px; padding:8px 10px; border-radius:8px; cursor:pointer;
+}
+.icon-btn:hover{background:rgba(255,255,255,.12)}
+
+.update-banner{
+  position:sticky;
+  top:52px;
+  z-index:49;
+  background:var(--brand-green);
+  color:#111;
+  display:flex;
+  gap:10px;
+  align-items:center;
+  justify-content:space-between;
+  padding:8px 12px;
+  border-bottom:3px solid var(--brand-red);
+}
+.update-text{font-weight:700}
+
+.main{max-width:720px; margin:0 auto; padding:10px 10px 40px}
+.month-header{
+  position:sticky;
+  top:0; /* will sit under banner because banner sticky with top:52px */
+  z-index:40;
+  display:grid;
+  grid-template-columns: 1fr 1.6fr;
+  gap:0;
+  border:2px solid var(--line);
+  border-top:4px solid var(--brand-green);
+  background:var(--card);
+}
+.mh-left{
+  background:#eaf3d2;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:12px 10px;
+  border-right:2px solid var(--line);
+}
+.mh-company{
+  font-weight:800;
+  font-size:20px;
+  letter-spacing:.2px;
+}
+.mh-person{
+  margin-top:6px;
+  font-weight:800;
+  font-size:14px;
+  color:#222;
+}
+.mh-right{
+  background:#f1f8df;
+  padding:10px 10px 8px;
+}
+.mh-monthrow{
+  display:grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items:center;
+  gap:6px;
+}
+.nav-btn{
+  appearance:none; border:1px solid var(--brand-green-dark);
+  background:#eaf3d2;
+  border-radius:10px;
+  height:36px;
+  font-size:22px;
+  cursor:pointer;
+}
+.nav-btn:active{transform:scale(.98)}
+.mh-month{
+  text-align:center;
+  font-weight:800;
+  font-size:20px;
+}
+.mh-stats{margin-top:8px; display:grid; gap:4px}
+.stat-row{display:flex; justify-content:space-between; font-size:14px}
+.stat-val{font-weight:800}
+.stat-val.good{color:var(--brand-green-dark)}
+.stat-val.bad{color:var(--brand-red)}
+.mh-actions{margin-top:8px; display:flex; gap:8px; justify-content:flex-end}
+
+.btn{
+  appearance:none; border:1px solid #bbb;
+  background:#f7f7f7;
+  border-radius:12px;
+  padding:9px 12px;
+  font-weight:700;
+  cursor:pointer;
+}
+.btn:active{transform:scale(.98)}
+.btn-light{background:#f7f7f7}
+.btn-primary{
+  background:var(--brand-green);
+  border-color:var(--brand-green-dark);
+  color:#111;
+}
+.btn-danger{
+  background:var(--brand-red);
+  border-color:var(--brand-red-dark);
+  color:#fff;
+}
+
+.list{margin-top:8px; border:2px solid var(--line); border-radius:12px; overflow:hidden; background:var(--card)}
+.day-card{
+  border-bottom:1px solid var(--line);
+  background:#fff;
+}
+.day-card:last-child{border-bottom:0}
+.day-main{
+  display:grid;
+  grid-template-columns: 64px 1fr auto;
+  gap:10px;
+  padding:10px;
+  align-items:center;
+}
+.day-date{
+  text-align:center;
+  border-right:1px solid var(--line);
+  padding-right:8px;
+}
+.day-num{font-weight:900; font-size:22px}
+.day-wd{font-size:12px; color:var(--muted); text-transform:uppercase}
+.day-info{min-width:0}
+.day-title{font-weight:800; font-size:15px}
+.day-sub{font-size:12px; color:var(--muted); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.day-badge{
+  font-weight:900;
+  font-size:13px;
+  padding:6px 8px;
+  border-radius:999px;
+  background:#f2f2f2;
+  white-space:nowrap;
+}
+.day-badge.plus{background:#eaf3d2; color:var(--brand-green-dark)}
+.day-badge.minus{background:#fde8e9; color:var(--brand-red)}
+.day-badge.neutral{background:#eee;color:#333}
+
+.form-grid{display:grid; gap:12px}
+.form-row{display:grid; gap:6px}
+.form-row label{font-weight:800; font-size:13px}
+input,select,textarea{
+  width:100%;
+  font:inherit;
+  border:1px solid #bbb;
+  border-radius:12px;
+  padding:10px 12px;
+  background:#fff;
+}
+textarea{min-height:90px; resize:vertical}
+.two{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.three{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px}
+
+.modal{
+  position:fixed; inset:0; z-index:100;
+  display:flex; align-items:flex-end; justify-content:center;
+  background:rgba(0,0,0,.38);
+}
+.modal-card{
+  width:min(720px, 100%);
+  max-height:92vh;
+  overflow:auto;
+  background:#fff;
+  border-radius:18px 18px 0 0;
+  border:2px solid var(--line);
+}
+.modal-header{
+  position:sticky; top:0; background:#111; color:#fff;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px;
+  z-index:2;
+}
+.modal-title{font-weight:900; font-size:18px}
+.modal-body{padding:14px; display:grid; gap:12px}
+.modal-footer{
+  position:sticky; bottom:0; background:#fff;
+  display:flex; gap:10px; justify-content:flex-end;
+  padding:12px; border-top:1px solid var(--line);
+}
+
+.settings-section{
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:12px;
+  display:grid;
+  gap:10px;
+}
+.settings-title{font-weight:900; color:#111}
+.small{font-size:12px; color:var(--muted); line-height:1.35}
+.toast{
+  position:fixed; left:50%; bottom:20px; transform:translateX(-50%);
+  background:#111; color:#fff; padding:10px 14px; border-radius:999px;
+  z-index:200; font-weight:800; max-width:90%; text-align:center;
+}
+
+.year-table{width:100%; border-collapse:collapse; font-size:12px}
+.year-table th,.year-table td{border:1px solid #ddd; padding:6px; text-align:right}
+.year-table th:first-child,.year-table td:first-child{text-align:left}
+.year-table th{background:#f4f4f4}
+
+.import-drop{
+  border:2px dashed #bbb;
+  border-radius:14px;
+  padding:16px;
+  text-align:center;
+  background:#fafafa;
+}
+
+@media (max-width:520px){
+  .month-header{grid-template-columns:1fr}
+  .mh-left{border-right:0; border-bottom:2px solid var(--line); padding:8px}
+  .mh-company{font-size:18px}
+  .three{grid-template-columns:1fr}
+  .two{grid-template-columns:1fr 1fr}
+  .day-main{grid-template-columns:58px 1fr auto; gap:8px}
+  .btn{padding:8px 10px}
+}
+
+  </style>
+</head>
+<body>
+  <div class="update-banner hidden" id="updateBanner">
+    <div class="update-text">Update verfügbar</div>
+    <button class="btn btn-light" id="btnUpdateNow">Aktualisieren</button>
+  </div>
+
+  <header class="appbar">
+    <div class="appbar-left">
+      <div class="app-title">Arbeitszeiterfassung</div>
+      <div class="app-subtitle" id="appSubtitle">—</div>
+    </div>
+    <div class="appbar-right">
+      <button class="icon-btn" id="btnInstall" title="App installieren" style="display:none">⬇</button>
+      <button class="icon-btn" id="btnExport" title="Export">⇩</button>
+      <button class="icon-btn" id="btnSettings" title="Einstellungen">⚙</button>
+    </div>
+  </header>
+
+  <main class="main">
+    <section class="month-header">
+      <div class="mh-left">
+        <div class="mh-company" id="companyName">Firma</div>
+        <div class="mh-person" id="employeeName">Mitarbeiter</div>
+      </div>
+      <div class="mh-right">
+        <div class="mh-monthrow">
+          <button class="nav-btn" id="btnPrevMonth">‹</button>
+          <div class="mh-month" id="monthTitle">—</div>
+          <button class="nav-btn" id="btnNextMonth">›</button>
+        </div>
+        <div class="mh-stats">
+          <div class="stat-row"><span>S. Vormonat</span><span class="stat-val" id="statPrevSaldo">0:00</span></div>
+          <div class="stat-row"><span>S. lfd. Monat</span><span class="stat-val" id="statMonthSaldo">0:00</span></div>
+          <div class="stat-row"><span>Gesamt</span><span class="stat-val" id="statTotalSaldo">0:00</span></div>
+          <div class="stat-row"><span>Urlaub Rest</span><span class="stat-val" id="statVacation">0 Tg</span></div>
+          <div class="stat-row"><span>Krank</span><span class="stat-val" id="statSick">0 Tg</span></div>
+</div>
+        <div class="mh-actions">
+          <button class="btn btn-light" id="btnYearView">Jahr</button>
+          <button class="btn btn-light" id="btnToday">Heute</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="list" id="dayList"></section>
+  </main>
+
+  <div class="modal hidden" id="dayModal" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title" id="dayModalTitle">Tag bearbeiten</div>
+        <button class="icon-btn" id="btnCloseDay" title="Schließen">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-row">
+            <label>Typ</label>
+            <select id="fType">
+              <option value="work">Arbeit</option>
+              <option value="free">Frei</option>
+              <option value="vac">Urlaub</option>
+              <option value="sick">Krank</option>
+              <option value="holiday">Feiertag</option>
+              <option value="school">Schule/Fortbildung</option>
+              <option value="other">Sonstiges</option>
+            </select>
+          </div>
+          <div class="two">
+            <div class="form-row"><label>Start</label><input type="time" id="fStart"></div>
+            <div class="form-row"><label>Ende</label><input type="time" id="fEnd"></div>
+          </div>
+          <div class="two">
+            <div class="form-row"><label>Pause (Stunden)</label><input type="number" id="fBreak" min="0" step="0.25"></div>
+            <div class="form-row"><label>Soll (Stunden)</label><input type="number" id="fSoll" min="0" step="0.25"></div>
+          </div>
+          <div class="form-row"><label>Ort / Objekt</label><input type="text" id="fPlace" placeholder="z.B. Büro, Kunde, ..."></div>
+          <div class="form-row"><label>Notiz</label><textarea id="fNote" placeholder="Optional"></textarea></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-danger" id="btnDeleteDay">Löschen</button>
+        <button class="btn btn-light" id="btnCancelDay">Abbrechen</button>
+        <button class="btn btn-primary" id="btnSaveDay">Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="settingsModal" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">Einstellungen</div>
+        <button class="icon-btn" id="btnCloseSettings" title="Schließen">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="settings-section">
+          <div class="settings-title">Profil</div>
+          <div class="form-row"><label>Firma</label><input type="text" id="sCompany"></div>
+          <div class="form-row"><label>Mitarbeiter</label><input type="text" id="sEmployee"></div>
+          <div class="form-row"><label>Bundesland</label><select id="sState"></select></div>
+          <div class="form-row"><label>Urlaubsanspruch pro Jahr (Tage)</label><input type="number" id="sVacationTotal" min="0" step="1"></div>
+          <div class="form-row"><label>Standard-Soll pro Arbeitstag</label><input type="number" id="sDefaultSoll" min="0" step="0.25"></div>
+          <button class="btn btn-primary" id="btnSaveSettings">Einstellungen speichern</button>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-title">Jahresanfang</div>
+          <div class="small">Setze hier den Saldo zum Jahresbeginn. Dieser Wert wird als „S. Vormonat“ im Januar übernommen.</div>
+          <div class="form-row"><label>Jahr</label><input type="number" id="sYearStartYear" min="2025" step="1"></div>
+          <div class="form-row"><label>Saldo Jahresbeginn (Stunden, z.B. -3.5 oder 12.25)</label><input type="number" id="sYearStartSaldo" step="0.25"></div>
+          <button class="btn btn-primary" id="btnSaveYearStart">Jahresanfang speichern</button>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-title">Sicherung / Wiederherstellung</div>
+          <div class="small">JSON-Backup enthält alle lokalen Daten. CSV/PDF sind für Weitergabe/Archiv.</div>
+          <button class="btn btn-primary" id="btnBackupJson">JSON-Backup erstellen</button>
+          <button class="btn btn-light" id="btnRestoreJson">JSON wiederherstellen</button>
+          <input type="file" id="fileRestoreJson" accept="application/json" class="hidden">
+          <button class="btn btn-light" id="btnExportCsv">CSV exportieren</button>
+          <button class="btn btn-light" id="btnExportPdf">PDF/HTML-Bericht exportieren</button>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-title">CSV Import</div>
+          <div class="small">Importiert CSV mit Spalten wie Datum, Start, Ende, Pause, Ort, Notiz. Bestehende Tage werden überschrieben.</div>
+          <div class="import-drop" id="csvDrop">CSV-Datei hier ablegen oder auswählen</div>
+          <button class="btn btn-light" id="btnImportCsv">CSV importieren</button>
+          <input type="file" id="fileImportCsv" accept=".csv,text/csv" class="hidden">
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-title">App / Update</div>
+          <div class="small" id="versionInfo">Version —</div>
+          <div class="small" id="installDiag">Install-Diagnose —</div>
+          <button class="btn btn-primary" id="btnInstallSettings">App installieren</button>
+          <button class="btn btn-light" id="btnCacheReset">Update neu laden / Cache leeren</button>
+          <button class="btn btn-light" id="btnBackupReminder">Backup-Erinnerung prüfen</button>
+          <button class="btn btn-danger" id="btnCleanupBefore2025">Daten vor 2025 löschen</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="yearModal" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title" id="yearModalTitle">Jahresübersicht</div>
+        <button class="icon-btn" id="btnCloseYear" title="Schließen">✕</button>
+      </div>
+      <div class="modal-body" id="yearBody"></div>
+      <div class="modal-footer">
+        <button class="btn btn-light" id="btnYearCsv">CSV Jahr</button>
+        <button class="btn btn-light" id="btnYearPdf">PDF/HTML Jahr</button>
+        <button class="btn btn-primary" id="btnCloseYear2">Schließen</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="exportModal" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">Export</div>
+        <button class="icon-btn" id="btnCloseExport" title="Schließen">✕</button>
+      </div>
+      <div class="modal-body">
+        <button class="btn btn-primary" id="btnExportJson2">JSON-Backup</button>
+        <button class="btn btn-light" id="btnExportCsv2">CSV aktueller Monat</button>
+        <button class="btn btn-light" id="btnExportPdf2">PDF/HTML aktueller Monat</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="importModal" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">Import</div>
+        <button class="icon-btn" id="btnCloseImport" title="Schließen">✕</button>
+      </div>
+      <div class="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Backup Reminder Modal -->
+  <div class="modal hidden" id="backupModal" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">⚠️ Backup empfohlen</div>
+        <button class="icon-btn" id="btnCloseBackup" title="Schließen">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="settings-section" style="background:#fff8e1;border-color:#ffc107;">
+          <div class="settings-title">Sichere deine Daten</div>
+          <div class="small" id="backupHint">Es wird empfohlen, regelmäßig ein JSON-Backup zu erstellen.</div>
+          <button class="btn btn-primary" id="btnBackupNow">Jetzt Backup erstellen</button>
+          <button class="btn btn-light" id="btnBackupLater">Später erinnern</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast hidden" id="toast"></div>
+
+  <script>
+  /* ==== db.js ==== */
+  /* db.js - IndexedDB wrapper (offline, stable across updates) */
+(function(){
+  'use strict';
+
+  const DB_NAME = 'az_pwa_db';
+  const DB_VERSION = 1;
+  const STORE_DAYS = 'days';
+  const STORE_SETTINGS = 'settings';
+
+  function openDB(){
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if(!db.objectStoreNames.contains(STORE_DAYS)){
+          const s = db.createObjectStore(STORE_DAYS, { keyPath: 'date' }); // date: YYYY-MM-DD
+          s.createIndex('byDate', 'date', {unique:true});
+        }
+        if(!db.objectStoreNames.contains(STORE_SETTINGS)){
+          db.createObjectStore(STORE_SETTINGS, { keyPath: 'key' });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function tx(store, mode, fn){
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const t = db.transaction(store, mode);
+      const s = t.objectStore(store);
+      let result;
+      Promise.resolve(fn(s)).then(r => { result = r; }).catch(reject);
+      t.oncomplete = () => resolve(result);
+      t.onerror = () => reject(t.error);
+      t.onabort = () => reject(t.error);
+    });
+  }
+
+  function getDateKey(d){ return d; }
+
+  async function getDay(dateKey){
+    return tx(STORE_DAYS, 'readonly', (s) => new Promise((res, rej) => {
+      const req = s.get(getDateKey(dateKey));
+      req.onsuccess = () => res(req.result || null);
+      req.onerror = () => rej(req.error);
+    }));
+  }
+
+  async function setDay(rec){
+    // rec: {date, type, start, end, breakH, place, note, updatedAt}
+    return tx(STORE_DAYS, 'readwrite', (s) => new Promise((res, rej) => {
+      const req = s.put(rec);
+      req.onsuccess = () => res(true);
+      req.onerror = () => rej(req.error);
+    }));
+  }
+
+  async function deleteDay(dateKey){
+    return tx(STORE_DAYS, 'readwrite', (s) => new Promise((res, rej) => {
+      const req = s.delete(getDateKey(dateKey));
+      req.onsuccess = () => res(true);
+      req.onerror = () => rej(req.error);
+    }));
+  }
+
+  async function getRange(startKey, endKey){
+    // inclusive range [startKey, endKey]
+    return tx(STORE_DAYS, 'readonly', (s) => new Promise((res, rej) => {
+      const out = [];
+      const req = s.openCursor();
+      req.onsuccess = () => {
+        const cur = req.result;
+        if(cur){
+          const k = cur.key;
+          if(k >= startKey && k <= endKey) out.push(cur.value);
+          cur.continue();
+        }else{
+          res(out);
+        }
+      };
+      req.onerror = () => rej(req.error);
+    }));
+  }
+
+  async function getAll(){
+    return tx(STORE_DAYS, 'readonly', (s) => new Promise((res, rej) => {
+      const req = s.getAll();
+      req.onsuccess = () => res(req.result || []);
+      req.onerror = () => rej(req.error);
+    }));
+  }
+
+  async function getSetting(key, fallback=null){
+    return tx(STORE_SETTINGS, 'readonly', (s) => new Promise((res, rej) => {
+      const req = s.get(key);
+      req.onsuccess = () => res(req.result ? req.result.value : fallback);
+      req.onerror = () => rej(req.error);
+    }));
+  }
+
+  async function setSetting(key, value){
+    return tx(STORE_SETTINGS, 'readwrite', (s) => new Promise((res, rej) => {
+      const req = s.put({key, value});
+      req.onsuccess = () => res(true);
+      req.onerror = () => rej(req.error);
+    }));
+  }
+
+  async function deleteSetting(key){
+    return tx(STORE_SETTINGS, 'readwrite', (s) => new Promise((res, rej) => {
+      const req = s.delete(key);
+      req.onsuccess = () => res(true);
+      req.onerror = () => rej(req.error);
+    }));
+  }
+
+  async function cleanupBefore2025(){
+    const cutoff = '2025-01-01';
+    // delete day records before cutoff
+    await tx(STORE_DAYS, 'readwrite', (s) => new Promise((res, rej) => {
+      const req = s.openCursor();
+      req.onsuccess = () => {
+        const cur = req.result;
+        if(cur){
+          if(cur.key < cutoff) cur.delete();
+          cur.continue();
+        }else res(true);
+      };
+      req.onerror = () => rej(req.error);
+    }));
+    // remove yearStartSaldo for years < 2025
+    const keysToDelete = [];
+    await tx(STORE_SETTINGS, 'readonly', (s) => new Promise((res, rej) => {
+      const req = s.openCursor();
+      req.onsuccess = () => {
+        const cur = req.result;
+        if(cur){
+          const k = cur.key;
+          if(typeof k === 'string' && k.startsWith('yearStartSaldo_')){
+            const yr = parseInt(k.slice('yearStartSaldo_'.length), 10);
+            if(Number.isFinite(yr) && yr < 2025) keysToDelete.push(k);
+          }
+          cur.continue();
+        }else res(true);
+      };
+      req.onerror = () => rej(req.error);
+    }));
+    for(const k of keysToDelete){
+      await deleteSetting(k);
+    }
+  }
+
+  window.AZDB = {
+    openDB,
+    getDay,
+    setDay,
+    deleteDay,
+    getRange,
+    getAll,
+    getSetting,
+    setSetting,
+    deleteSetting,
+    cleanupBefore2025
+  };
+})();
+
+  /* ==== holidays.js ==== */
+  /* holidays.js - German public holidays by Bundesland (offline) */
+(function(){
+  'use strict';
+
+  const STATES = {
+    'BW':'Baden-Württemberg','BY':'Bayern','BE':'Berlin','BB':'Brandenburg','HB':'Bremen','HH':'Hamburg','HE':'Hessen','MV':'Mecklenburg-Vorpommern','NI':'Niedersachsen','NW':'Nordrhein-Westfalen','RP':'Rheinland-Pfalz','SL':'Saarland','SN':'Sachsen','ST':'Sachsen-Anhalt','SH':'Schleswig-Holstein','TH':'Thüringen'
+  };
+
+  function pad2(n){ return String(n).padStart(2,'0'); }
+  function dateKey(y,m,d){ return `${y}-${pad2(m)}-${pad2(d)}`; }
+
+  // Meeus/Jones/Butcher Gregorian Easter
+  function easterDate(year){
+    const a = year % 19;
+    const b = Math.floor(year / 100);
+    const c = year % 100;
+    const d = Math.floor(b / 4);
+    const e = b % 4;
+    const f = Math.floor((b + 8) / 25);
+    const g = Math.floor((b - f + 1) / 3);
+    const h = (19 * a + b - d - g + 15) % 30;
+    const i = Math.floor(c / 4);
+    const k = c % 4;
+    const l = (32 + 2 * e + 2 * i - h - k) % 7;
+    const m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const month = Math.floor((h + l - 7*m + 114) / 31);
+    const day = ((h + l - 7*m + 114) % 31) + 1;
+    return new Date(year, month-1, day);
+  }
+
+  function addDays(dt, days){
+    const d = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+    d.setDate(d.getDate()+days);
+    return d;
+  }
+  function keyFromDate(d){ return dateKey(d.getFullYear(), d.getMonth()+1, d.getDate()); }
+
+  function holidaysForYear(year, state){
+    const out = new Map();
+    const add = (key, name) => out.set(key, name);
+    const easter = easterDate(year);
+
+    add(dateKey(year,1,1),'Neujahr');
+    add(keyFromDate(addDays(easter,-2)),'Karfreitag');
+    add(keyFromDate(addDays(easter,1)),'Ostermontag');
+    add(dateKey(year,5,1),'Tag der Arbeit');
+    add(keyFromDate(addDays(easter,39)),'Christi Himmelfahrt');
+    add(keyFromDate(addDays(easter,50)),'Pfingstmontag');
+    add(dateKey(year,10,3),'Tag der Deutschen Einheit');
+    add(dateKey(year,12,25),'1. Weihnachtstag');
+    add(dateKey(year,12,26),'2. Weihnachtstag');
+
+    if(['BW','BY','ST'].includes(state)) add(dateKey(year,1,6),'Heilige Drei Könige');
+    if(['BW','BY','HE','NW','RP','SL'].includes(state)) add(keyFromDate(addDays(easter,60)),'Fronleichnam');
+    if(['SL'].includes(state)) add(dateKey(year,8,15),'Mariä Himmelfahrt');
+    if(['BW','BY','NW','RP','SL'].includes(state)) add(dateKey(year,11,1),'Allerheiligen');
+    if(['BB','MV','SN','ST','TH','HB','HH','NI','SH'].includes(state)) add(dateKey(year,10,31),'Reformationstag');
+    if(['SN'].includes(state)){
+      // Buß- und Bettag: Wednesday before Nov 23
+      let d = new Date(year,10,22);
+      while(d.getDay() !== 3) d.setDate(d.getDate()-1);
+      add(keyFromDate(d),'Buß- und Bettag');
+    }
+    if(['BE'].includes(state)) add(dateKey(year,3,8),'Internationaler Frauentag');
+
+    return out;
+  }
+
+  window.AZHolidays = { STATES, holidaysForYear };
+})();
+
+  /* ==== export.js ==== */
+  /* export.js - CSV/PDF/JSON import-export */
+(function(){
+  'use strict';
+
+  function pad2(n){ return String(n).padStart(2,'0'); }
+  function todayStamp(){
+    const d = new Date();
+    return `${d.getFullYear()}${pad2(d.getMonth()+1)}${pad2(d.getDate())}-${pad2(d.getHours())}${pad2(d.getMinutes())}`;
+  }
+  function safeName(s){
+    return String(s||'').trim().replace(/[^a-z0-9äöüß\-_]+/gi,'_').replace(/_+/g,'_').slice(0,80) || 'arbeitszeit';
+  }
+  function downloadBlob(blob, filename){
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+  }
+  function downloadText(text, filename, mime){
+    const blob = new Blob([text], {type: mime || 'text/plain;charset=utf-8'});
+    downloadBlob(blob, filename);
+  }
+
+  function buildCsv(rows){
+    const header = ["Datum","Wochentag","Typ","Start","Ende","Pause_h","Soll_h","Ist_h","Diff_h","Ort","Notiz"].join(";");
+    const lines = [header];
+    for(const r of rows){
+      lines.push([
+        r.datum,
+        r.wochentag,
+        r.typ,
+        r.start||"",
+        r.ende||"",
+        r.pause_h,
+        r.soll_h,
+        r.ist_h,
+        r.diff_h,
+        (r.ort||"").replace(/;/g,','),
+        (r.notiz||"").replace(/;/g,',')
+      ].join(";"));
+    }
+    return lines.join("\n");
+  }
+
+    /* === PATCHPOINT: BUILD_MOBILE_HTML_REPORT === */
+  function buildHtmlReport({title, subtitle, rows, summary, employee, company}){
+    const esc = (s)=>String(s??'').replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    const css = `
+      body{font-family:Arial, sans-serif; margin:20px; color:#111}
+      h1{font-size:22px; margin:0 0 4px}
+      h2{font-size:16px; margin:0 0 16px; color:#555}
+      .meta{margin:12px 0; font-size:13px}
+      .summary{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:14px 0}
+      .box{border:1px solid #ccc; border-radius:8px; padding:10px}
+      .box b{display:block; font-size:18px; margin-top:4px}
+      table{width:100%; border-collapse:collapse; font-size:12px}
+      th,td{border:1px solid #ddd; padding:6px; text-align:left}
+      th{background:#f2f2f2}
+      td.num{text-align:right}
+      @media print{body{margin:10mm}.no-print{display:none}}
+    `;
+    const trs = rows.map(r=>`<tr>
+      <td>${esc(r.datum)}</td><td>${esc(r.wochentag)}</td><td>${esc(r.typ)}</td>
+      <td>${esc(r.start||'')}</td><td>${esc(r.ende||'')}</td>
+      <td class="num">${esc(r.pause_h)}</td><td class="num">${esc(r.soll_h)}</td><td class="num">${esc(r.ist_h)}</td><td class="num">${esc(r.diff_h)}</td>
+      <td>${esc(r.ort||'')}</td><td>${esc(r.notiz||'')}</td>
+    </tr>`).join('');
+    return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>${css}</style></head><body>
+      <button class="no-print" onclick="window.print()">Drucken / PDF speichern</button>
+      <h1>${esc(title)}</h1><h2>${esc(subtitle||'')}</h2>
+      <div class="meta"><b>Firma:</b> ${esc(company||'')} &nbsp; <b>Mitarbeiter:</b> ${esc(employee||'')}</div>
+      <div class="summary">
+        <div class="box">Soll<b>${esc(summary.soll)}</b></div>
+        <div class="box">Ist<b>${esc(summary.ist)}</b></div>
+        <div class="box">Saldo<b>${esc(summary.diff)}</b></div>
+      </div>
+      <table><thead><tr><th>Datum</th><th>Tag</th><th>Typ</th><th>Start</th><th>Ende</th><th>Pause</th><th>Soll</th><th>Ist</th><th>Diff</th><th>Ort</th><th>Notiz</th></tr></thead><tbody>${trs}</tbody></table>
+    </body></html>`;
+  }
+
+  function parseCsv(text){
+    // basic delimiter detection
+    const delimiter = (text.split('\n')[0] || '').includes(';') ? ';' : ',';
+    const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).filter(l=>l.trim().length);
+    if(!lines.length) return [];
+    const headers = lines[0].split(delimiter).map(h=>h.trim().toLowerCase());
+    const rows = [];
+    for(let i=1;i<lines.length;i++){
+      const vals = lines[i].split(delimiter).map(v=>v.trim().replace(/^"|"$/g,''));
+      const obj = {};
+      headers.forEach((h,idx)=>obj[h]=vals[idx]||'');
+      rows.push(obj);
+    }
+    return rows;
+  }
+
+  function mapCsvRowToDay(row){
+    const get = (...names)=>{
+      for(const n of names){
+        const v = row[n.toLowerCase()];
+        if(v !== undefined && v !== '') return v;
+      }
+      return '';
+    };
+    let date = get('datum','date');
+    // dd.mm.yyyy -> yyyy-mm-dd
+    const m = date.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+    if(m) date = `${m[3]}-${pad2(m[2])}-${pad2(m[1])}`;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+
+    const typeRaw = get('typ','type').toLowerCase();
+    let type = 'work';
+    if(typeRaw.includes('urlaub')) type='vac';
+    else if(typeRaw.includes('krank')) type='sick';
+    else if(typeRaw.includes('feier')) type='holiday';
+    else if(typeRaw.includes('frei')) type='free';
+    else if(typeRaw.includes('schule')) type='school';
+
+    return {
+      date,
+      type,
+      start: get('start','beginn'),
+      end: get('ende','end'),
+      breakH: parseFloat(String(get('pause_h','pause (h)','pause')).replace(',','.')) || 0,
+      sollOverride: get('soll_h','soll (h)') ? (parseFloat(String(get('soll_h','soll (h)')).replace(',','.')) || 0) : null,
+      place: get('ort','objekt','place'),
+      note: get('notiz','bemerkung','note'),
+      updatedAt: new Date().toISOString()
+    };
+  }
+
+  window.AZExport = {
+    todayStamp,
+    safeName,
+    downloadText,
+    buildCsv,
+    buildHtmlReport,
+    parseCsv,
+    mapCsvRowToDay
+  };
+})();
+
+  /* ==== app.js ==== */
+  /* app.js - main UI/logic */
+(function(){
+  'use strict';
+
+    // Normalize GitHub Pages URL without trailing slash.
+    // If opened as ".../Arbeitszeiterfassung" (without trailing slash), relative SW scope
+    // can otherwise resolve one level too high on some Android Chrome builds.
+    if(location.protocol.startsWith('http') && !location.pathname.endsWith('/') && !location.pathname.split('/').pop().includes('.')){
+      location.replace(location.pathname + '/' + location.search + location.hash);
+      return;
+    }
+
+  const VERSION_FALLBACK = '1.6.4g';
+  const DEFAULT_SETTINGS = {
+    companyName: 'Firma',
+    employeeName: 'Mitarbeiter',
+    state: 'NW',
+    vacationTotal: 30,
+    defaultSoll: 8
+  };
+  const KEY_SETTINGS = 'settings';
+  const KEY_LAST_BACKUP_AT = 'lastBackupAt';
+  const BACKUP_REMINDER_DAYS = 7;
+
+  const MONTHS = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  const WD = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+  const TYPES = {work:'Arbeit', free:'Frei', vac:'Urlaub', sick:'Krank', holiday:'Feiertag', school:'Schule', other:'Sonstiges'};
+  const NON_WORK_TYPES = new Set(['free','vac','sick','holiday']);
+
+  const current = { year: new Date().getFullYear(), month: new Date().getMonth()+1 };
+  let selectedDate = null;
+  let settings = {...DEFAULT_SETTINGS};
+  let deferredInstallPrompt = null;
+  let backupModalShown = false;
+
+  const $ = (sel)=>document.querySelector(sel);
+  const els = (id)=>document.getElementById(id);
+
+  function pad2(n){ return String(n).padStart(2,'0'); }
+  function toKey(y,m,d){ return `${y}-${pad2(m)}-${pad2(d)}`; }
+  function parseKey(key){ const [y,m,d]=key.split('-').map(Number); return {y,m,d}; }
+  function minutesFromHHMM(s){
+    if(!s || !/^\d{2}:\d{2}$/.test(s)) return null;
+    const [h,m]=s.split(':').map(Number);
+    return h*60+m;
+  }
+  function hoursBetween(start,end,breakH){
+    const a = minutesFromHHMM(start), b = minutesFromHHMM(end);
+    if(a===null || b===null) return 0;
+    let mins = b-a;
+    if(mins < 0) mins += 24*60; // overnight
+    return Math.max(0, mins/60 - (Number(breakH)||0));
+  }
+  function fmtH(x){
+    const sign = x < 0 ? '-' : '';
+    const abs = Math.abs(x);
+    const h = Math.floor(abs);
+    const m = Math.round((abs-h)*60);
+    return `${sign}${h}:${pad2(m)}`;
+  }
+  function round2(n){ return Math.round((n+Number.EPSILON)*100)/100; }
+  function isWeekend(date){ const d=date.getDay(); return d===0 || d===6; }
+  function dateObj(key){ const {y,m,d}=parseKey(key); return new Date(y,m-1,d); }
+
+  async function loadSettings(){
+    settings = await AZDB.getSetting(KEY_SETTINGS, {...DEFAULT_SETTINGS});
+    if(!settings || typeof settings !== 'object') settings = {...DEFAULT_SETTINGS};
+    settings = {...DEFAULT_SETTINGS, ...settings};
+  }
+  async function saveSettings(){ await AZDB.setSetting(KEY_SETTINGS, settings); }
+
+  function calcDay(rec, key){
+    const type = rec?.type || 'work';
+    const d = dateObj(key);
+    const holidayName = AZHolidays.holidaysForYear(d.getFullYear(), settings.state).get(key);
+    let autoType = type;
+    if(!rec && holidayName) autoType = 'holiday';
+    const isNonWork = NON_WORK_TYPES.has(autoType);
+    const soll = rec?.sollOverride ?? (isNonWork || isWeekend(d) ? 0 : Number(settings.defaultSoll)||0);
+    const ist = autoType==='work' || autoType==='school' || autoType==='other' ? hoursBetween(rec?.start, rec?.end, rec?.breakH) : 0;
+    const diff = round2(ist - soll);
+    return {type:autoType, soll:round2(soll), ist:round2(ist), diff, holidayName};
+  }
+
+  function typeTitle(type, holidayName){
+    if(type==='holiday' && holidayName) return holidayName;
+    return TYPES[type] || type;
+  }
+
+  function monthRange(year,month){
+    const last = new Date(year, month, 0).getDate();
+    return {start:toKey(year,month,1), end:toKey(year,month,last), last};
+  }
+
+  async function renderMonth(){
+    await loadSettings();
+    els('companyName').textContent = settings.companyName;
+    els('employeeName').textContent = settings.employeeName;
+    els('monthTitle').textContent = `${MONTHS[current.month-1]} ${current.year}`;
+    els('appSubtitle').textContent = `v${await getVersionText()}`;
+
+    const {last} = monthRange(current.year,current.month);
+    const hols = AZHolidays.holidaysForYear(current.year, settings.state);
+    const list = els('dayList');
+    list.innerHTML = '';
+
+    let monthDiff=0, monthSoll=0, monthIst=0, sick=0, vac=0;
+    for(let day=1; day<=last; day++){
+      const key = toKey(current.year,current.month,day);
+      const rec = await AZDB.getDay(key);
+      const calc = calcDay(rec,key);
+      monthDiff += calc.diff;
+      monthSoll += calc.soll;
+      monthIst += calc.ist;
+      if(calc.type==='sick') sick++;
+      if(calc.type==='vac') vac++;
+
+      const d = dateObj(key);
+      const title = typeTitle(calc.type, calc.holidayName);
+      const subParts = [];
+      if(rec?.start || rec?.end) subParts.push(`${rec?.start||'--:--'}–${rec?.end||'--:--'}`);
+      if(rec?.breakH) subParts.push(`Pause ${rec.breakH}h`);
+      if(rec?.place) subParts.push(rec.place);
+      if(rec?.note) subParts.push(rec.note);
+      if(!subParts.length && calc.type==='work') subParts.push('Tippen zum Eintragen');
+
+      const card = document.createElement('article');
+      card.className='day-card';
+      card.innerHTML = `
+        <div class="day-main">
+          <div class="day-date"><div class="day-num">${day}</div><div class="day-wd">${WD[d.getDay()]}</div></div>
+          <div class="day-info"><div class="day-title">${title}</div><div class="day-sub">${subParts.join(' · ')}</div></div>
+          <div class="day-badge ${calc.diff>0?'plus':calc.diff<0?'minus':'neutral'}">${fmtH(calc.diff)}</div>
+        </div>`;
+      card.addEventListener('click', ()=>openDay(key));
+      list.appendChild(card);
+    }
+
+    const prevSaldo = await saldoBeforeMonth(current.year,current.month);
+    const total = prevSaldo + monthDiff;
+    setStat('statPrevSaldo', prevSaldo);
+    setStat('statMonthSaldo', monthDiff);
+    setStat('statTotalSaldo', total);
+    els('statVacation').textContent = `${Math.max(0,(Number(settings.vacationTotal)||0)-await vacationUsed(current.year))} Tg`;
+    els('statSick').textContent = `${await sickDays(current.year)} Tg`;
+  }
+
+  function setStat(id, val){
+    const el = els(id);
+    el.textContent = fmtH(round2(val));
+    el.classList.remove('good','bad');
+    if(val>0) el.classList.add('good');
+    if(val<0) el.classList.add('bad');
+  }
+
+  async function allDaysForYear(year){
+    const rows = await AZDB.getRange(`${year}-01-01`, `${year}-12-31`);
+    return rows;
+  }
+
+  async function saldoBeforeMonth(year, month){
+    let saldo = Number(await AZDB.getSetting(`yearStartSaldo_${year}`, 0)) || 0;
+    for(let m=1; m<month; m++){
+      saldo += await monthDiff(year,m);
+    }
+    return round2(saldo);
+  }
+
+  async function monthDiff(year,month){
+    const {last} = monthRange(year,month);
+    let diff=0;
+    for(let day=1; day<=last; day++){
+      const key=toKey(year,month,day);
+      const rec=await AZDB.getDay(key);
+      diff += calcDay(rec,key).diff;
+    }
+    return round2(diff);
+  }
+
+  async function vacationUsed(year){
+    const rows=await allDaysForYear(year);
+    return rows.filter(r=>r.type==='vac').length;
+  }
+  async function sickDays(year){
+    const rows=await allDaysForYear(year);
+    return rows.filter(r=>r.type==='sick').length;
+  }
+
+  async function openDay(key){
+    selectedDate = key;
+    const rec = await AZDB.getDay(key);
+    const {y,m,d}=parseKey(key);
+    els('dayModalTitle').textContent = `${WD[new Date(y,m-1,d).getDay()]}, ${d}.${m}.${y}`;
+    els('fType').value = rec?.type || (AZHolidays.holidaysForYear(y, settings.state).has(key) ? 'holiday' : 'work');
+    els('fStart').value = rec?.start || '';
+    els('fEnd').value = rec?.end || '';
+    els('fBreak').value = rec?.breakH ?? '';
+    els('fSoll').value = rec?.sollOverride ?? '';
+    els('fPlace').value = rec?.place || '';
+    els('fNote').value = rec?.note || '';
+    els('dayModal').classList.remove('hidden');
+  }
+  function closeDay(){ els('dayModal').classList.add('hidden'); selectedDate=null; }
+  async function saveDay(){
+    if(!selectedDate) return;
+    const rec = {
+      date:selectedDate,
+      type:els('fType').value,
+      start:els('fStart').value,
+      end:els('fEnd').value,
+      breakH: parseFloat(els('fBreak').value)||0,
+      place:els('fPlace').value.trim(),
+      note:els('fNote').value.trim(),
+      updatedAt:new Date().toISOString()
+    };
+    const sollVal = els('fSoll').value;
+    if(sollVal !== '') rec.sollOverride = parseFloat(sollVal)||0;
+    await AZDB.setDay(rec);
+    closeDay();
+    await renderMonth();
+    toast('Gespeichert');
+  }
+  async function deleteDay(){
+    if(!selectedDate) return;
+    if(!confirm('Diesen Tag löschen?')) return;
+    await AZDB.deleteDay(selectedDate);
+    closeDay(); await renderMonth(); toast('Gelöscht');
+  }
+
+  function openSettings(){
+    els('sCompany').value=settings.companyName;
+    els('sEmployee').value=settings.employeeName;
+    els('sState').innerHTML = Object.entries(AZHolidays.STATES).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');
+    els('sState').value=settings.state;
+    els('sVacationTotal').value=settings.vacationTotal;
+    els('sDefaultSoll').value=settings.defaultSoll;
+    els('sYearStartYear').value=current.year;
+    AZDB.getSetting(`yearStartSaldo_${current.year}`, 0).then(v=>els('sYearStartSaldo').value=v);
+    updateVersionInfo();
+    updateInstallDiag();
+    els('settingsModal').classList.remove('hidden');
+  }
+  function closeSettings(){ els('settingsModal').classList.add('hidden'); }
+
+  async function saveSettingsFromForm(){
+    settings.companyName = els('sCompany').value.trim() || 'Firma';
+    settings.employeeName = els('sEmployee').value.trim() || 'Mitarbeiter';
+    settings.state = els('sState').value;
+    settings.vacationTotal = parseInt(els('sVacationTotal').value,10) || 0;
+    settings.defaultSoll = parseFloat(els('sDefaultSoll').value) || 0;
+    await saveSettings();
+    await renderMonth();
+    toast('Einstellungen gespeichert');
+  }
+
+  async function saveYearStart(){
+    const y = parseInt(els('sYearStartYear').value,10);
+    const v = parseFloat(els('sYearStartSaldo').value)||0;
+    await AZDB.setSetting(`yearStartSaldo_${y}`, v);
+    await renderMonth();
+    toast('Jahresanfang gespeichert');
+  }
+
+  async function getVersionText(){
+    try{
+      const res = await fetch(`version.json?t=${Date.now()}`, {cache:'no-store'});
+      const j = await res.json();
+      return `${j.version || VERSION_FALLBACK} (${j.build||''})`;
+    }catch(e){ return VERSION_FALLBACK; }
+  }
+  async function updateVersionInfo(){ els('versionInfo').textContent = `Version ${await getVersionText()}`; }
+
+  function toast(msg){
+    const t=els('toast'); t.textContent=msg; t.classList.remove('hidden');
+    setTimeout(()=>t.classList.add('hidden'), 2200);
+  }
+
+  async function rowsForMonth(year,month){
+    const {last}=monthRange(year,month);
+    const rows=[];
+    for(let day=1; day<=last; day++){
+      const key=toKey(year,month,day);
+      const d=dateObj(key);
+      const rec=await AZDB.getDay(key);
+      const calc=calcDay(rec,key);
+      rows.push({
+        datum:key,
+        wochentag:WD[d.getDay()],
+        typ:typeTitle(calc.type,calc.holidayName),
+        start:rec?.start||'', ende:rec?.end||'', pause_h:rec?.breakH||0,
+        soll_h:calc.soll, ist_h:calc.ist, diff_h:calc.diff,
+        ort:rec?.place||'', notiz:rec?.note||''
+      });
+    }
+    return rows;
+  }
+  async function rowsForYear(year){
+    let out=[];
+    for(let m=1;m<=12;m++) out=out.concat(await rowsForMonth(year,m));
+    return out;
+  }
+  function summaryFromRows(rows){
+    const sum=(k)=>round2(rows.reduce((a,r)=>a+(parseFloat(r[k])||0),0));
+    return {soll:fmtH(sum('soll_h')), ist:fmtH(sum('ist_h')), diff:fmtH(sum('diff_h'))};
+  }
+
+  async function exportJson(){
+    const days=await AZDB.getAll();
+    const settingsObj=await AZDB.getSetting(KEY_SETTINGS, settings);
+    const allSettings=[];
+    // known settings keys
+    for(const y of [2025,2026,2027,2028,2029,2030]){
+      const v=await AZDB.getSetting(`yearStartSaldo_${y}`, null);
+      if(v!==null) allSettings.push({key:`yearStartSaldo_${y}`, value:v});
+    }
+    const lastBackupAt = Date.now();
+    await AZDB.setSetting(KEY_LAST_BACKUP_AT, lastBackupAt);
+    const data={schema:1, app:'Arbeitszeiterfassung', exportedAt:new Date().toISOString(), settings:settingsObj, extraSettings:allSettings, days};
+    AZExport.downloadText(JSON.stringify(data,null,2), `arbeitszeit_backup_${AZExport.todayStamp()}.json`, 'application/json;charset=utf-8');
+    toast('JSON-Backup erstellt');
+  }
+
+  async function restoreJsonFile(file){
+    const text=await file.text();
+    const data=JSON.parse(text);
+    if(!data || !Array.isArray(data.days)) throw new Error('Ungültiges Backup');
+    if(data.settings) await AZDB.setSetting(KEY_SETTINGS, {...DEFAULT_SETTINGS,...data.settings});
+    if(Array.isArray(data.extraSettings)){
+      for(const kv of data.extraSettings){ if(kv && kv.key) await AZDB.setSetting(kv.key, kv.value); }
+    }
+    for(const rec of data.days){ if(rec && rec.date) await AZDB.setDay(rec); }
+    await loadSettings(); await renderMonth(); toast('Backup wiederhergestellt');
+  }
+
+  async function exportCsvMonth(){
+    const rows=await rowsForMonth(current.year,current.month);
+    AZExport.downloadText(AZExport.buildCsv(rows), `arbeitszeit_${current.year}_${pad2(current.month)}.csv`, 'text/csv;charset=utf-8');
+  }
+  async function exportCsvYear(){
+    const rows=await rowsForYear(current.year);
+    AZExport.downloadText(AZExport.buildCsv(rows), `arbeitszeit_${current.year}.csv`, 'text/csv;charset=utf-8');
+  }
+  async function exportPdfMonth(){
+    const rows=await rowsForMonth(current.year,current.month);
+    const html=AZExport.buildHtmlReport({title:'Arbeitszeit Bericht', subtitle:`${MONTHS[current.month-1]} ${current.year}`, rows, summary:summaryFromRows(rows), employee:settings.employeeName, company:settings.companyName});
+    AZExport.downloadText(html, `arbeitszeit_${current.year}_${pad2(current.month)}.html`, 'text/html;charset=utf-8');
+  }
+  async function exportPdfYear(){
+    const rows=await rowsForYear(current.year);
+    const html=AZExport.buildHtmlReport({title:'Arbeitszeit Jahresbericht', subtitle:String(current.year), rows, summary:summaryFromRows(rows), employee:settings.employeeName, company:settings.companyName});
+    AZExport.downloadText(html, `arbeitszeit_${current.year}.html`, 'text/html;charset=utf-8');
+  }
+
+  async function importCsvFile(file){
+    const text=await file.text();
+    const rows=AZExport.parseCsv(text);
+    let count=0;
+    for(const r of rows){
+      const rec=AZExport.mapCsvRowToDay(r);
+      if(rec){ await AZDB.setDay(rec); count++; }
+    }
+    await renderMonth(); toast(`${count} Zeilen importiert`);
+  }
+
+  async function openYear(){
+    const y=current.year;
+    let html='<table class="year-table"><thead><tr><th>Monat</th><th>Soll</th><th>Ist</th><th>Diff</th><th>Saldo</th></tr></thead><tbody>';
+    let saldo=Number(await AZDB.getSetting(`yearStartSaldo_${y}`,0))||0;
+    for(let m=1;m<=12;m++){
+      const rows=await rowsForMonth(y,m);
+      const soll=round2(rows.reduce((a,r)=>a+r.soll_h,0));
+      const ist=round2(rows.reduce((a,r)=>a+r.ist_h,0));
+      const diff=round2(rows.reduce((a,r)=>a+r.diff_h,0));
+      saldo=round2(saldo+diff);
+      html += `<tr><td>${MONTHS[m-1]}</td><td>${fmtH(soll)}</td><td>${fmtH(ist)}</td><td>${fmtH(diff)}</td><td>${fmtH(saldo)}</td></tr>`;
+    }
+    html+='</tbody></table>';
+    els('yearModalTitle').textContent=`Jahresübersicht ${y}`;
+    els('yearBody').innerHTML=html;
+    els('yearModal').classList.remove('hidden');
+  }
+
+  // ---- Backup Reminder ----
+  async function checkBackupReminder(){
+    const lastBackup = await AZDB.getSetting(KEY_LAST_BACKUP_AT, null);
+    const now = Date.now();
+    const daysSinceBackup = lastBackup ? Math.floor((now - lastBackup) / (1000 * 60 * 60 * 24)) : null;
+    
+    if(!lastBackup || daysSinceBackup >= BACKUP_REMINDER_DAYS){
+      showBackupModal(daysSinceBackup);
+      return true;
+    }
+    return false;
+  }
+  
+  function showBackupModal(daysSinceBackup){
+    const hint = els('backupHint');
+    if(daysSinceBackup === null){
+      hint.textContent = 'Du hast noch kein Backup erstellt. Erstelle jetzt ein JSON-Backup, um deine Daten zu sichern.';
+    }else{
+      hint.textContent = `Dein letztes Backup ist ${daysSinceBackup} Tage alt. Es wird empfohlen, mindestens alle ${BACKUP_REMINDER_DAYS} Tage ein Backup zu erstellen.`;
+    }
+    els('backupModal').classList.remove('hidden');
+    backupModalShown = true;
+  }
+  
+  function closeBackupModal(){
+    els('backupModal').classList.add('hidden');
+  }
+
+    // ---- Update / Cache ----
+    async function cacheReset(){
+      try{
+        if('serviceWorker' in navigator){
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(r=>r.unregister()));
+        }
+        if(window.caches){
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k=>caches.delete(k)));
+        }
+        toast('Cache geleert – lade neu');
+        setTimeout(()=>location.reload(), 600);
+      }catch(e){
+        alert('Cache konnte nicht geleert werden: '+e.message);
+      }
+    }
+  
+    async function updateNow(){
+      if(!('serviceWorker' in navigator)) return location.reload();
+      const reg = await navigator.serviceWorker.getRegistration();
+      if(reg && reg.waiting){
+        reg.waiting.postMessage({type:'SKIP_WAITING'});
+      }else{
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r=>r.update().catch(()=>{})));
+        location.reload();
+      }
+    }
+  
+    function setupSW(){
+      if(!('serviceWorker' in navigator)) return;
+      window.addEventListener('load', ()=>{
+        // Absolute scope/script to avoid path resolution edge-cases on Android/Chrome.
+        const baseScope = new URL('./', location.href).pathname; // e.g. "/Arbeitszeiterfassung/"
+        const swUrl = baseScope + 'sw.js?ver=1.6.4g';
+        navigator.serviceWorker.register(swUrl, {scope: baseScope}).then((reg)=>{
+          // listen for updates
+          reg.addEventListener('updatefound', ()=>{
+            const nw = reg.installing;
+            if(!nw) return;
+            nw.addEventListener('statechange', ()=>{
+              if(nw.state === 'installed' && navigator.serviceWorker.controller){
+                els('updateBanner').classList.remove('hidden');
+              }
+            });
+          });
+          if(reg.waiting && navigator.serviceWorker.controller){
+            els('updateBanner').classList.remove('hidden');
+          }
+        }).catch(()=>{});
+        navigator.serviceWorker.addEventListener('controllerchange', ()=>location.reload());
+      });
+    }
+  
+    function setupInstall(){
+      window.addEventListener('beforeinstallprompt', (e)=>{
+        e.preventDefault();
+        deferredInstallPrompt = e;
+        const b=els('btnInstall'); if(b) b.style.display='inline-block';
+      });
+      const install = async()=>{
+        if(!deferredInstallPrompt){
+          alert('Installieren ist derzeit nicht verfügbar. Öffne die Seite in Chrome/Edge und nutze Menü → App installieren / Zum Startbildschirm hinzufügen.');
+          return;
+        }
+        deferredInstallPrompt.prompt();
+        await deferredInstallPrompt.userChoice.catch(()=>{});
+        deferredInstallPrompt=null;
+        const b=els('btnInstall'); if(b) b.style.display='none';
+      };
+      els('btnInstall').addEventListener('click', install);
+      els('btnInstallSettings').addEventListener('click', install);
+    }
+  
+    async function updateInstallDiag(){
+      const secure = location.protocol === 'https:' || location.hostname === 'localhost';
+      const hasSW = 'serviceWorker' in navigator;
+      const controlled = !!navigator.serviceWorker?.controller;
+      const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+      let regScope='—';
+      try{ const reg = hasSW ? await navigator.serviceWorker.getRegistration() : null; regScope = reg?.scope || '—'; }catch(_e){}
+      els('installDiag').textContent = `Secure:${secure?'ja':'nein'} · SW:${hasSW?'ja':'nein'} · Controller:${controlled?'ja':'nein'} · Standalone:${standalone?'ja':'nein'} · Scope:${regScope}`;
+    }
+
+  function bind(){
+    els('btnPrevMonth').addEventListener('click', async()=>{ current.month--; if(current.month<1){current.month=12;current.year--;} await renderMonth(); });
+    els('btnNextMonth').addEventListener('click', async()=>{ current.month++; if(current.month>12){current.month=1;current.year++;} await renderMonth(); });
+    els('btnToday').addEventListener('click', async()=>{ const d=new Date(); current.year=d.getFullYear(); current.month=d.getMonth()+1; await renderMonth(); });
+    els('btnSettings').addEventListener('click', openSettings);
+    els('btnCloseSettings').addEventListener('click', closeSettings);
+    els('btnSaveSettings').addEventListener('click', saveSettingsFromForm);
+    els('btnSaveYearStart').addEventListener('click', saveYearStart);
+    els('btnCloseDay').addEventListener('click', closeDay);
+    els('btnCancelDay').addEventListener('click', closeDay);
+    els('btnSaveDay').addEventListener('click', saveDay);
+    els('btnDeleteDay').addEventListener('click', deleteDay);
+    els('btnExport').addEventListener('click', ()=>els('exportModal').classList.remove('hidden'));
+    els('btnCloseExport').addEventListener('click', ()=>els('exportModal').classList.add('hidden'));
+    els('btnExportJson2').addEventListener('click', exportJson);
+    els('btnExportCsv2').addEventListener('click', exportCsvMonth);
+    els('btnExportPdf2').addEventListener('click', exportPdfMonth);
+    els('btnBackupJson').addEventListener('click', exportJson);
+    els('btnExportCsv').addEventListener('click', exportCsvMonth);
+    els('btnExportPdf').addEventListener('click', exportPdfMonth);
+    els('btnRestoreJson').addEventListener('click', ()=>els('fileRestoreJson').click());
+    els('fileRestoreJson').addEventListener('change', async (e)=>{
+      const f=e.target.files?.[0]; if(!f) return;
+      try{ await restoreJsonFile(f); }catch(err){ alert('Restore fehlgeschlagen: '+err.message); }
+      e.target.value='';
+    });
+    els('btnImportCsv').addEventListener('click', ()=>els('fileImportCsv').click());
+    els('fileImportCsv').addEventListener('change', async(e)=>{
+      const f=e.target.files?.[0]; if(!f) return;
+      try{ await importCsvFile(f); }catch(err){ alert('CSV Import fehlgeschlagen: '+err.message); }
+      e.target.value='';
+    });
+    els('csvDrop').addEventListener('dragover', e=>{e.preventDefault();});
+    els('csvDrop').addEventListener('drop', async e=>{e.preventDefault(); const f=e.dataTransfer.files?.[0]; if(f) await importCsvFile(f);});
+    els('btnYearView').addEventListener('click', openYear);
+    els('btnCloseYear').addEventListener('click', ()=>els('yearModal').classList.add('hidden'));
+    els('btnCloseYear2').addEventListener('click', ()=>els('yearModal').classList.add('hidden'));
+    els('btnYearCsv').addEventListener('click', exportCsvYear);
+    els('btnYearPdf').addEventListener('click', exportPdfYear);
+    els('btnCacheReset').addEventListener('click', cacheReset);
+    els('btnUpdateNow').addEventListener('click', updateNow);
+    els('btnBackupReminder').addEventListener('click', checkBackupReminder);
+    els('btnBackupNow').addEventListener('click', async()=>{ await exportJson(); closeBackupModal(); });
+    els('btnBackupLater').addEventListener('click', closeBackupModal);
+    els('btnCloseBackup').addEventListener('click', closeBackupModal);
+    els('btnCleanupBefore2025').addEventListener('click', async()=>{
+      if(confirm('Alle Einträge vor 2025 sowie alte Jahresanfang-Salden löschen?')){
+        await AZDB.cleanupBefore2025(); await renderMonth(); toast('Bereinigt');
+      }
+    });
+  }
+
+  async function init(){
+    bind();
+    setupSW();
+    setupInstall();
+    await loadSettings();
+    await renderMonth();
+    // Check backup reminder after a short delay (only once per session)
+    setTimeout(async()=>{
+      if(!backupModalShown){
+        await checkBackupReminder();
+      }
+    }, 1500);
+  }
+
+  init().catch(err=>{
+    console.error(err);
+    alert('Fehler beim Start: '+err.message);
+  });
+})();
+
+  </script>
+</body>
+</html>
