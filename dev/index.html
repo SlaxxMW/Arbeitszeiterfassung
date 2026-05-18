@@ -22,7 +22,7 @@
   <script>
   (async function(){
     const err = document.getElementById('err');
-    const DEV_VERSION = '1.6.4g-dev2-weeklysoll';
+    const DEV_VERSION = '1.6.4g-dev3-basis';
     function mustReplace(html, search, replacement, label){
       const before = html;
       html = html.replace(search, replacement);
@@ -99,6 +99,12 @@
 "    function baseSollHours(key){\n      return isWeekend(key) ? 0 : 8;\n    }",
 "    function baseSollHours(key){\n      return isWeekend(key) ? 0 : dailySollFromWeekly();\n    }",
 'dynamisches Tages-Soll');
+
+      // JS: DEV Cache-Reset auf DEV-Caches begrenzen, damit die Root-App nicht beeinflusst wird.
+      html = mustReplace(html,
+"          for(const k of keys) await caches.delete(k);",
+"          for(const k of keys){\n            if(String(k).startsWith('azdev-pwa-')) await caches.delete(k);\n          }",
+'DEV Cache Reset begrenzen');
 
       // JS: Backup enthält neue Einstellung, alte Backups ohne Feld bleiben kompatibel.
       html = mustReplace(html,
